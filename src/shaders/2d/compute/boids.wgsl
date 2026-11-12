@@ -8,6 +8,7 @@
 // One packed rgba8 colour per pixel, rows from the bottom of the screen up.
 // Cleared to 0 each frame, which the display draws as the background.
 @binding(7) @group(0) var<storage, read_write> raster : array<atomic<u32>>;
+@binding(8) @group(0) var<storage, read_write> springPartners : array<atomic<u32>>;
 
 // Neighbour rows staged once per group, as (pos, vel)
 var<workgroup> tile : array<vec4<f32>, tileSize>;
@@ -21,10 +22,14 @@ fn storeBoid(index: u32, boid: Boid) {
   boidsOut[index * 2u + 1u] = pack2x16float(boid.vel);
 }
 
-fn addNeighbour(pos: vec2<f32>, otherPos: vec2<f32>, otherVel: vec2<f32>, center: ptr<function, vec2<f32>>, close: ptr<function, vec2<f32>>, avgVel: ptr<function, vec2<f32>>, neighbours: ptr<function, u32>) {
+fn addNeighbour(pos: vec2<f32>, otherPos: vec2<f32>, otherVel: vec2<f32>, otherIndex: u32, center: ptr<function, vec2<f32>>, close: ptr<function, vec2<f32>>, avgVel: ptr<function, vec2<f32>>, neighbours: ptr<function, u32>, closestIndex: ptr<function, u32>, closestDistSq: ptr<function, f32>) {
   let diff = pos - otherPos;
   let distSq = dot(diff, diff);
   if (distSq < params.visualRangeSq && distSq > 0.0) {
+    if (distSq < params.minDistanceSq * 2.25 && distSq < *closestDistSq) {
+      *closestDistSq = distSq;
+      *closestIndex = otherIndex;
+    }
     if (distSq < params.minDistanceSq) {
       *close += diff * (1.0 / distSq - params.invMinDistanceSq);
     }
@@ -34,11 +39,13 @@ fn addNeighbour(pos: vec2<f32>, otherPos: vec2<f32>, otherVel: vec2<f32>, center
   }
 }
 
-fn mergedBehaviours(boid: ptr<function, Boid>, localID: u32, firstCell: u32, lastCell: u32) {
+fn mergedBehaviours(boid: ptr<function, Boid>, localID: u32, firstCell: u32, lastCell: u32, closestIndex: ptr<function, u32>) {
   var center : vec2<f32> = vec2<f32>();
   var close : vec2<f32> = vec2<f32>();
   var avgVel : vec2<f32> = vec2<f32>();
   var neighbours: u32 = 0u;
+  var closestCandidate: u32 = 0xffffffffu;
+  var closestDistSq: f32 = 1e30;
 
   let pos = (*boid).pos;
   let cell = getGridID(pos);
@@ -73,10 +80,10 @@ fn mergedBehaviours(boid: ptr<function, Boid>, localID: u32, firstCell: u32, las
         let o1 = tile[j + 1u];
         let o2 = tile[j + 2u];
         let o3 = tile[j + 3u];
-        addNeighbour(pos, o0.xy, o0.zw, &center, &close, &avgVel, &neighbours);
-        addNeighbour(pos, o1.xy, o1.zw, &center, &close, &avgVel, &neighbours);
-        addNeighbour(pos, o2.xy, o2.zw, &center, &close, &avgVel, &neighbours);
-        addNeighbour(pos, o3.xy, o3.zw, &center, &close, &avgVel, &neighbours);
+        addNeighbour(pos, o0.xy, o0.zw, sortedIndices[tileStart + j], &center, &close, &avgVel, &neighbours, &closestCandidate, &closestDistSq);
+        addNeighbour(pos, o1.xy, o1.zw, sortedIndices[tileStart + j + 1u], &center, &close, &avgVel, &neighbours, &closestCandidate, &closestDistSq);
+        addNeighbour(pos, o2.xy, o2.zw, sortedIndices[tileStart + j + 2u], &center, &close, &avgVel, &neighbours, &closestCandidate, &closestDistSq);
+        addNeighbour(pos, o3.xy, o3.zw, sortedIndices[tileStart + j + 3u], &center, &close, &avgVel, &neighbours, &closestCandidate, &closestDistSq);
       }
       // Up to 3 are left. Reading all 3 slots and testing the ones past the
       // end as the boid itself, which is never a neighbour, avoids a branch
@@ -87,9 +94,9 @@ fn mergedBehaviours(boid: ptr<function, Boid>, localID: u32, firstCell: u32, las
       let o0 = tile[j0];
       let o1 = tile[j1];
       let o2 = tile[j2];
-      addNeighbour(pos, select(pos, o0.xy, j < tileEnd), o0.zw, &center, &close, &avgVel, &neighbours);
-      addNeighbour(pos, select(pos, o1.xy, j + 1u < tileEnd), o1.zw, &center, &close, &avgVel, &neighbours);
-      addNeighbour(pos, select(pos, o2.xy, j + 2u < tileEnd), o2.zw, &center, &close, &avgVel, &neighbours);
+      addNeighbour(pos, select(pos, o0.xy, j < tileEnd), o0.zw, select(0xffffffffu, sortedIndices[tileStart + j0], j < tileEnd), &center, &close, &avgVel, &neighbours, &closestCandidate, &closestDistSq);
+      addNeighbour(pos, select(pos, o1.xy, j + 1u < tileEnd), o1.zw, select(0xffffffffu, sortedIndices[tileStart + j1], j + 1u < tileEnd), &center, &close, &avgVel, &neighbours, &closestCandidate, &closestDistSq);
+      addNeighbour(pos, select(pos, o2.xy, j + 2u < tileEnd), o2.zw, select(0xffffffffu, sortedIndices[tileStart + j2], j + 2u < tileEnd), &center, &close, &avgVel, &neighbours, &closestCandidate, &closestDistSq);
     } else {
       // Dense cells are sampled instead of making every boid inspect thousands
       // of neighbours. Sparse groups still use the exact shared-tile path above.
@@ -102,7 +109,7 @@ fn mergedBehaviours(boid: ptr<function, Boid>, localID: u32, firstCell: u32, las
         if (j >= end) { j = start; }
         for (var sample = 0u; sample < sampleCount && j < end; sample += 1u) {
           let other = packBoid(loadBoid(sortedIndices[j]));
-          addNeighbour(pos, other.xy, other.zw, &center, &close, &avgVel, &neighbours);
+          addNeighbour(pos, other.xy, other.zw, sortedIndices[j], &center, &close, &avgVel, &neighbours, &closestCandidate, &closestDistSq);
           j += sampleStride;
         }
       }
@@ -164,6 +171,7 @@ fn mergedBehaviours(boid: ptr<function, Boid>, localID: u32, firstCell: u32, las
   }
 
   (*boid).vel += params.flowBias * (params.dt * params.behaviorStrength * 0.9);
+  *closestIndex = closestCandidate;
 }
 
 fn limitSpeed(boid: ptr<function, Boid>) {
@@ -205,7 +213,26 @@ fn main(@builtin(workgroup_id) GroupID : vec3<u32>, @builtin(local_invocation_in
   let firstCell = getGridID(loadBoid(sortedIndices[first]).pos);
   let lastCell = getGridID(loadBoid(sortedIndices[last]).pos);
 
-  mergedBehaviours(&boid, localID, firstCell, lastCell);
+  var contactPartner: u32 = 0xffffffffu;
+  mergedBehaviours(&boid, localID, firstCell, lastCell, &contactPartner);
+  if (params.springEnabled > 0u) {
+    let currentPartner = atomicLoad(&springPartners[boidIndex]);
+    if (currentPartner != 0xffffffffu) {
+      let partner = loadBoid(currentPartner);
+      let delta = partner.pos - boid.pos;
+      let distance = length(delta);
+      if (distance > 0.9) {
+        atomicStore(&springPartners[boidIndex], 0xffffffffu);
+      } else if (distance > 0.0001) {
+        let direction = delta / distance;
+        let stretch = distance - 0.24;
+        let relativeSpeed = dot(partner.vel - boid.vel, direction);
+        boid.vel += direction * (stretch * 5.0 - relativeSpeed * 1.4) * params.dt;
+      }
+    } else if (contactPartner != 0xffffffffu) {
+      atomicCompareExchangeWeak(&springPartners[boidIndex], 0xffffffffu, contactPartner);
+    }
+  }
   limitSpeed(&boid);
   keepInBounds(&boid);
   if (params.mousePredator > 0) {
