@@ -352,6 +352,9 @@ body {
   opacity: 0.6;
   cursor: progress;
 }
+.benchmark-copy {
+  margin-top: -4px;
+}
 .benchmark-results {
   max-height: 180px;
   overflow: auto;
