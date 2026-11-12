@@ -80,9 +80,21 @@ try {
     );
 
     const resultText = await page.locator("#benchmark-results").innerText();
+    const metrics = resultText.split("\n").flatMap((line) => {
+      const match = line.match(/^\s*([\d,]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+ms$/);
+      if (!match) return [];
+      return [{
+        count: Number(match[1].replaceAll(",", "")),
+        fps: Number(match[2]),
+        averageMs: Number(match[3]),
+        p95Ms: Number(match[4]),
+        queueDrainMs: Number(match[5]),
+      }];
+    });
     report.runs.push({
       name: target.name,
       adapter,
+      metrics,
       resultText,
       errors,
       skipped: resultText.startsWith("Benchmark stopped:"),
@@ -93,6 +105,24 @@ try {
   }
 } finally {
   await browser.close();
+}
+
+const baseline = report.runs.find((run) => run.name === "baseline");
+const improved = report.runs.find((run) => run.name === "improved");
+if (baseline?.metrics?.length && improved?.metrics?.length) {
+  const improvedByCount = new Map(improved.metrics.map((row) => [row.count, row]));
+  report.comparison = baseline.metrics.flatMap((row) => {
+    const next = improvedByCount.get(row.count);
+    if (!next || row.fps <= 0) return [];
+    return [{
+      count: row.count,
+      baselineFps: row.fps,
+      improvedFps: next.fps,
+      fpsChangePercent: Number((((next.fps - row.fps) / row.fps) * 100).toFixed(1)),
+      baselineP95Ms: row.p95Ms,
+      improvedP95Ms: next.p95Ms,
+    }];
+  });
 }
 
 await writeFile("benchmark-results.json", JSON.stringify(report, null, 2));
