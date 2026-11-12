@@ -188,7 +188,7 @@ export const createBoidCompute = async <Name extends string>(
         createStorageBuffer(device, numBoids * kernels.boidBytes),
       ];
       gridBuffers = {
-        // Each boid's cell and its rank in that cell
+        // One cell index per boid; compact atomic cursors assign sorted ranks
         grid: createStorageBuffer(device, numBoids * 4),
         gridCursors: createStorageBuffer(device, gridTotalCells * 4),
         sortedIndices: createStorageBuffer(device, numBoids * 4),
