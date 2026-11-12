@@ -55,6 +55,36 @@ jobs:
           mkdir -p improved/dist/baseline
           cp -R baseline/dist/. improved/dist/baseline/
 
+      - name: Install Chromium benchmark runner
+        id: playwright-install
+        working-directory: improved
+        continue-on-error: true
+        run: |
+          npm install --no-save playwright
+          npx playwright install chromium --with-deps
+
+      - name: Run baseline vs improved WebGPU benchmark
+        if: steps.playwright-install.outcome == 'success'
+        working-directory: improved
+        continue-on-error: true
+        env:
+          BENCHMARK_MAX: 131072
+        run: |
+          mkdir -p "$RUNNER_TEMP/gpuoids-preview"
+          ln -s "$GITHUB_WORKSPACE/improved/dist" "$RUNNER_TEMP/gpuoids-preview/gpuoids"
+          python3 -m http.server 4173 --directory "$RUNNER_TEMP/gpuoids-preview" > "$RUNNER_TEMP/gpuoids-http.log" 2>&1 &
+          SERVER_PID=$!
+          trap 'kill "$SERVER_PID" || true' EXIT
+          node scripts/benchmark.mjs
+
+      - name: Upload benchmark report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gpuoids-benchmark-report
+          path: improved/benchmark-results.json
+          if-no-files-found: warn
+
       - uses: actions/upload-pages-artifact@v3
         with:
           path: improved/dist
