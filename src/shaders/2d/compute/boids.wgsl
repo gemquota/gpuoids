@@ -158,6 +158,19 @@ fn main(@builtin(workgroup_id) GroupID : vec3<u32>, @builtin(local_invocation_in
 
   boid.pos += boid.vel * params.dt;
 
+  // Steering turns boids around gradually, but never guarantees containment
+  // at large delta times. Clamp the integrated position and reflect only the
+  // velocity component that hit a wall so no boid can escape the finite grid.
+  let bounds = vec2<f32>(params.xBound, params.yBound);
+  let boundedPos = clamp(boid.pos, -bounds, bounds);
+  if (boundedPos.x != boid.pos.x) {
+    boid.vel.x = -boid.vel.x * 0.75;
+  }
+  if (boundedPos.y != boid.pos.y) {
+    boid.vel.y = -boid.vel.y * 0.75;
+  }
+  boid.pos = boundedPos;
+
   // Written in cell order, so next frame's neighbour reads stay close together
   if (index < params.numBoids) {
     boidsOut[index] = packBoid(boid);
