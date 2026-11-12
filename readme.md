@@ -8,7 +8,9 @@ A mobile-oriented, performance-focused evolution of [BoidsWebGPU](https://github
 - **Benchmark baseline:** https://gemquota.github.io/gpuoids/baseline/
 - **Upstream project:** https://github.com/jtsorlinis/BoidsWebGPU
 
-The baseline page uses the upstream simulation code with the same benchmark controls added. The improved page includes the changes listed below. Both are built and deployed together so they can be compared on the same device and browser.\n\n**First-time setup:** enable GitHub Pages in repository Settings → Pages → Build and deployment → Source: **GitHub Actions**. The workflow builds both versions automatically and deploys them once Pages is enabled.
+The baseline page uses the upstream simulation code with the same benchmark controls added. The improved page includes the changes listed below. Both are built and deployed together so they can be compared on the same device and browser.
+
+**First-time setup:** enable GitHub Pages in repository **Settings → Pages → Build and deployment → Source: GitHub Actions**. The workflow builds both versions automatically and deploys them once Pages is enabled.
 
 ## Changes in gpuoids
 
