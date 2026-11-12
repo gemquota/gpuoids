@@ -9,7 +9,7 @@
 // Cleared to 0 each frame, which the display draws as the background.
 @binding(7) @group(0) var<storage, read_write> raster : array<atomic<u32>>;
 @binding(8) @group(0) var<storage, read> flockAttachmentsIn : array<vec2<u32>>;
-@binding(9) @group(0) var<storage, read_write> flockAttachmentsOut : array<vec4<f32>>;
+@binding(9) @group(0) var<storage, read_write> flockAttachmentsOut : array<vec2<u32>>;
 
 // Neighbour rows staged once per group, as (pos, vel)
 var<workgroup> tile : array<vec4<f32>, tileSize>;
