@@ -42,6 +42,7 @@ export const createSim = async (
   const abort = new AbortController();
   const view = createCamera2D(canvas, abort.signal);
   const pointer = { x: 0, y: 0 };
+  let gpuBusy = false;
   canvas.addEventListener("pointermove", (event) => {
     pointer.x = event.offsetX;
     pointer.y = event.offsetY;
@@ -66,7 +67,7 @@ export const createSim = async (
     const radius = numBoids >= 2_000_000 ? 0.56 : numBoids >= 262_144 ? 0.68 : numBoids >= 65_536 ? 0.9 : numBoids >= 1_024 ? 1.25 : 1.8;
     params.set("renderStride", stride);
     params.set("dotRadius", radius);
-    params.set("neighborSampleLimit", Math.max(4, Math.min(32, Math.round(32 * Math.sqrt(65_536 / numBoids)))));
+    params.set("neighborSampleLimit", Math.max(1, Math.min(8, Math.round(8 * Math.sqrt(65_536 / numBoids)))));
     lastDensityPixels = pixels;
   };
 
@@ -110,6 +111,7 @@ export const createSim = async (
   setup();
 
   const frame = (deltaTime: number) => {
+    if (gpuBusy) return;
     if (pendingNumBoids > 0) {
       numBoids = pendingNumBoids;
       pendingNumBoids = 0;
@@ -137,6 +139,11 @@ export const createSim = async (
     compute.encode(encoder, deltaTime);
     device.queue.submit([encoder.finish()]);
     quad!.render(renderer);
+    gpuBusy = true;
+    void device.queue.onSubmittedWorkDone().then(
+      () => { gpuBusy = false; },
+      () => { gpuBusy = false; },
+    );
   };
 
   return {
