@@ -8,7 +8,8 @@
 // One packed rgba8 colour per pixel, rows from the bottom of the screen up.
 // Cleared to 0 each frame, which the display draws as the background.
 @binding(7) @group(0) var<storage, read_write> raster : array<atomic<u32>>;
-@binding(8) @group(0) var<storage, read_write> flockAttachments : array<vec4<f32>>;
+@binding(8) @group(0) var<storage, read> flockAttachmentsIn : array<vec4<f32>>;
+@binding(9) @group(0) var<storage, read_write> flockAttachmentsOut : array<vec4<f32>>;
 
 // Neighbour rows staged once per group, as (pos, vel)
 var<workgroup> tile : array<vec4<f32>, tileSize>;
@@ -26,7 +27,7 @@ fn addNeighbour(pos: vec2<f32>, otherPos: vec2<f32>, otherVel: vec2<f32>, otherI
   let diff = pos - otherPos;
   let distSq = dot(diff, diff);
   if (distSq < params.visualRangeSq && distSq > 0.0) {
-    if (params.springEnabled > 0u && flockAttachments[otherIndex].z > 0.5) {
+    if (params.springEnabled > 0u && flockAttachmentsIn[otherIndex].z > 0.5) {
       *attachedCenter += otherPos;
       *attachedVelocity += otherVel;
       *attachedCount += 1u;
@@ -240,7 +241,7 @@ fn main(@builtin(workgroup_id) GroupID : vec3<u32>, @builtin(local_invocation_in
   mergedBehaviours(&boid, localID, firstCell, lastCell, &attachedCenter, &attachedVelocity, &attachedCount, &closestAttachedDistSq, &seedCenter, &neighbourCount);
 
   if (params.springEnabled > 0u) {
-    var attachment = flockAttachments[boidIndex];
+    var attachment = flockAttachmentsIn[boidIndex];
     let wasAttached = attachment.z > 0.5;
     if (attachedCount > 0u) {
       let invAttached = 1.0 / f32(attachedCount);
@@ -265,9 +266,9 @@ fn main(@builtin(workgroup_id) GroupID : vec3<u32>, @builtin(local_invocation_in
       // prevents isolated pairs from becoming a flock by accident.
       attachment = vec4<f32>(boid.pos - seedCenter, 1.0, 0.0);
     }
-    flockAttachments[boidIndex] = attachment;
+    flockAttachmentsOut[boidIndex] = attachment;
   } else {
-    flockAttachments[boidIndex] = vec4<f32>(0.0);
+    flockAttachmentsOut[boidIndex] = vec4<f32>(0.0);
   }
   limitSpeed(&boid);
   keepInBounds(&boid);
