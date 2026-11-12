@@ -22,7 +22,7 @@ fn storeBoid(index: u32, boid: Boid) {
   boidsOut[index * 2u + 1u] = pack2x16float(boid.vel);
 }
 
-fn addNeighbour(pos: vec2<f32>, otherPos: vec2<f32>, otherVel: vec2<f32>, otherIndex: u32, center: ptr<function, vec2<f32>>, close: ptr<function, vec2<f32>>, avgVel: ptr<function, vec2<f32>>, neighbours: ptr<function, u32>, closestIndex: ptr<function, u32>, closestDistSq: ptr<function, f32>, attachedCenter: ptr<function, vec2<f32>>, attachedVelocity: ptr<function, vec2<f32>>, attachedCount: ptr<function, u32>, closestAttachedDistSq: ptr<function, f32>) {
+fn addNeighbour(pos: vec2<f32>, otherPos: vec2<f32>, otherVel: vec2<f32>, otherIndex: u32, center: ptr<function, vec2<f32>>, close: ptr<function, vec2<f32>>, avgVel: ptr<function, vec2<f32>>, neighbours: ptr<function, u32>, closestIndex: ptr<function, u32>, closestDistSq: ptr<function, f32>, attachedCenter: ptr<function, vec2<f32>>, attachedVelocity: ptr<function, vec2<f32>>, attachedCount: ptr<function, u32>, closestAttachedDistSq: ptr<function, f32>, seedCenter: ptr<function, vec2<f32>>, neighbourCount: ptr<function, u32>) {
   let diff = pos - otherPos;
   let distSq = dot(diff, diff);
   if (distSq < params.visualRangeSq && distSq > 0.0) {
@@ -47,7 +47,7 @@ fn mergedBehaviours(boid: ptr<function, Boid>, localID: u32, firstCell: u32, las
   var closestCandidate: u32 = 0xffffffffu;
   var closestDistSq: f32 = 1e30;
 
-  let pos = (*boid).pos;\n  *attachedCenter = vec2<f32>(0.0);\n  *attachedVelocity = vec2<f32>(0.0);\n  *attachedCount = 0u;\n  *closestAttachedDistSq = 1e30;
+  let pos = (*boid).pos;\n  *attachedCenter = vec2<f32>(0.0);\n  *attachedVelocity = vec2<f32>(0.0);\n  *attachedCount = 0u;\n  *closestAttachedDistSq = 1e30;\n  *seedCenter = vec2<f32>(0.0);\n  *neighbourCount = 0u;
   let cell = getGridID(pos);
 
   // Loop around own cell. The group's boids are sorted by cell, so each row
@@ -116,9 +116,9 @@ fn mergedBehaviours(boid: ptr<function, Boid>, localID: u32, firstCell: u32, las
     }
   }
 
-  if (neighbours > 0u) {
+  *neighbourCount = neighbours;\n  if (neighbours > 0u) {
     let invNeighbours = 1.0 / f32(neighbours);
-    center *= invNeighbours;
+    center *= invNeighbours;\n    *seedCenter = center;
     avgVel *= invNeighbours;
 
     var cohesionScale = 1.0;
@@ -240,10 +240,10 @@ fn main(@builtin(workgroup_id) GroupID : vec3<u32>, @builtin(local_invocation_in
         // nearby attached cohort, never one arbitrarily selected boid.
         attachment = vec4<f32>(boid.pos - attachedCenter, 1.0, 0.0);
       }
-    } else if (!wasAttached && neighbours >= 3u) {
+    } else if (!wasAttached && neighbourCount >= 3u) {
       // Bootstrap an established local school. Requiring several neighbours
       // prevents isolated pairs from becoming a flock by accident.
-      attachment = vec4<f32>(boid.pos - center, 1.0, 0.0);
+      attachment = vec4<f32>(boid.pos - seedCenter, 1.0, 0.0);
     }
     flockAttachments[boidIndex] = attachment;
   } else {
