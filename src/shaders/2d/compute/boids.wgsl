@@ -93,7 +93,7 @@ fn mergedBehaviours(boid: ptr<function, Boid>, localID: u32, firstCell: u32, las
         let o2 = tile[j + 2u];
         let o3 = tile[j + 3u];
         addNeighbour(pos, o0.xy, o0.zw, sortedIndices[tileStart + j], sortedIndices[min(first + localID, last)], &center, &close, &avgVel, &neighbours, &closestCandidate, &closestDistSq, attachedCenter, attachedVelocity, attachedCount, closestAttachedDistSq);
-        addNeighbour(pos, o1.xy, o1.zw, sortedIndices[min(first + localID, last)], &center, &close, &avgVel, &neighbours, &closestCandidate, &closestDistSq, attachedCenter, attachedVelocity, attachedCount, closestAttachedDistSq);
+        addNeighbour(pos, o1.xy, o1.zw, sortedIndices[tileStart + j + 1u], sortedIndices[min(first + localID, last)], &center, &close, &avgVel, &neighbours, &closestCandidate, &closestDistSq, attachedCenter, attachedVelocity, attachedCount, closestAttachedDistSq);
         addNeighbour(pos, o2.xy, o2.zw, sortedIndices[tileStart + j + 2u], sortedIndices[min(first + localID, last)], &center, &close, &avgVel, &neighbours, &closestCandidate, &closestDistSq, attachedCenter, attachedVelocity, attachedCount, closestAttachedDistSq);
         addNeighbour(pos, o3.xy, o3.zw, sortedIndices[tileStart + j + 3u], sortedIndices[min(first + localID, last)], &center, &close, &avgVel, &neighbours, &closestCandidate, &closestDistSq, attachedCenter, attachedVelocity, attachedCount, closestAttachedDistSq);
       }
