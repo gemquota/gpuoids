@@ -107,7 +107,7 @@ export const createSim = async (
     const gridDimX = (Math.floor((xBound * 2) / visualRange) + 30) * 2;
     const gridDimY = Math.floor((yBound * 2) / visualRange) + 30;
     springPartners?.destroy();
-    springPartners = createStorageBuffer(device, numBoids * 4);
+    springPartners = createStorageBuffer(device, numBoids * 16);
     compute.setViewBuffers({ raster: rasterBuffer!, springPartners });
     compute.setup(numBoids, gridDimX * gridDimY, { xBound, yBound, gridDimX, gridDimY });
     updateRasterDensity();
