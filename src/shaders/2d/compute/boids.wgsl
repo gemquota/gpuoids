@@ -239,8 +239,11 @@ fn main(@builtin(workgroup_id) GroupID : vec3<u32>, @builtin(local_invocation_in
   if (params.springEnabled > 0u) {
     let packedAttachment = flockAttachmentsIn[boidIndex];
     var attachmentOffset = unpack2x16float(packedAttachment.x);
-    let wasAttached = packedAttachment.y != 0u;
+    let wasAttached = (packedAttachment.y & 1u) != 0u;
     var isAttached = wasAttached;
+    // The upper seven bits are a short strain timer. A connection must remain
+    // overstretched (or lose all local support) before it releases.
+    var strainFrames = (packedAttachment.y >> 1u) & 0x7fu;
     if (attachedCount > 0u) {
       let invAttached = 1.0 / f32(attachedCount);
       attachedCenter *= invAttached;
@@ -249,25 +252,44 @@ fn main(@builtin(workgroup_id) GroupID : vec3<u32>, @builtin(local_invocation_in
         let target = attachedCenter + attachmentOffset;
         let delta = target - boid.pos;
         let distance = length(delta);
-        if (distance > 0.0001) {
+        if (distance > 0.9) {
+          strainFrames = min(strainFrames + 1u, 127u);
+        } else {
+          strainFrames = select(strainFrames - 1u, 0u, strainFrames > 0u);
+        }
+        if (strainFrames >= 18u) {
+          isAttached = false;
+          strainFrames = 0u;
+        } else if (distance > 0.0001) {
           let direction = delta / distance;
           let relativeSpeed = dot(attachedVelocity - boid.vel, direction);
-          boid.vel += direction * (distance * 5.0 - relativeSpeed * 1.4) * params.dt;
+          let springAcceleration = clamp(distance * 5.0 - relativeSpeed * 1.4, -8.0, 8.0);
+          boid.vel += direction * springAcceleration * params.dt;
         }
       } else if (closestAttachedDistSq <= params.minDistanceSq * 2.25) {
         // Capture the local shape offset at first contact. The anchor is the
         // nearby attached cohort, never one arbitrarily selected boid.
         attachmentOffset = boid.pos - attachedCenter;
         isAttached = true;
+        strainFrames = 0u;
       }
-    } else if (!wasAttached && neighbourCount >= 3u) {
+    } else if (wasAttached) {
+      // A disconnected boid gets a grace period to find another local patch.
+      strainFrames = min(strainFrames + 1u, 127u);
+      if (strainFrames >= 18u) {
+        isAttached = false;
+        strainFrames = 0u;
+      }
+    } else if (neighbourCount >= 3u) {
       // Bootstrap an established local school. Requiring several neighbours
       // prevents isolated pairs from becoming a flock by accident.
       attachmentOffset = boid.pos - seedCenter;
       isAttached = true;
+      strainFrames = 0u;
     }
     if (index < params.numBoids) {
-      flockAttachmentsOut[boidIndex] = vec2<u32>(pack2x16float(attachmentOffset), select(0u, 1u, isAttached));
+      let attachmentState = select(0u, 1u, isAttached) | (strainFrames << 1u);
+      flockAttachmentsOut[boidIndex] = vec2<u32>(pack2x16float(attachmentOffset), attachmentState);
     }
   } else {
     if (index < params.numBoids) {
