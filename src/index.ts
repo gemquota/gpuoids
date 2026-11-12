@@ -139,6 +139,8 @@ const startSim = async (view3D: boolean) => {
     return;
   }
   sim = next;
+  const springSettings = ui.getSpringSettings();
+  sim.setSpringSettings?.(springSettings.length, springSettings.stretchiness, springSettings.connections);
   ui.setLimit(sim.boidLimit);
   loader.remove();
 };
