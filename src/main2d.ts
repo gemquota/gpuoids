@@ -29,6 +29,7 @@ export const createSim = async (
     dotRadius: "f32",
     renderStride: "u32",
     neighborSampleLimit: "u32",
+    springEnabled: "u32",
   });
   const { params } = compute;
   params.set("behaviorMode", 0);
@@ -38,6 +39,7 @@ export const createSim = async (
   params.set("simTime", 0);
   params.set("dotRadius", 0.85);
   params.set("renderStride", 1);
+  params.set("springEnabled", 0);
 
   const abort = new AbortController();
   const view = createCamera2D(canvas, abort.signal);
@@ -52,6 +54,7 @@ export const createSim = async (
   let pendingNumBoids = 0;
   let quad: QuadMesh | null = null;
   let rasterBuffer: GPUBuffer | null = null;
+  let springPartners: GPUBuffer | null = null;
   let rasterMaterial: NodeMaterial | null = null;
   let rasterWidth = 0;
   let rasterHeight = 0;
@@ -89,7 +92,7 @@ export const createSim = async (
     );
     if (quad) quad.material = rasterMaterial;
     else quad = new QuadMesh(rasterMaterial);
-    compute.setViewBuffers({ raster: rasterBuffer });
+    if (springPartners) compute.setViewBuffers({ raster: rasterBuffer, springPartners });
   };
 
   const setup = () => {
@@ -104,6 +107,9 @@ export const createSim = async (
     const gridDimX = (Math.floor((xBound * 2) / visualRange) + 30) * 2;
     const gridDimY = Math.floor((yBound * 2) / visualRange) + 30;
     compute.setup(numBoids, gridDimX * gridDimY, { xBound, yBound, gridDimX, gridDimY });
+    springPartners?.destroy();
+    springPartners = createStorageBuffer(device, numBoids * 4);
+    compute.setViewBuffers({ raster: rasterBuffer!, springPartners });
     updateRasterDensity();
   };
 
@@ -153,6 +159,7 @@ export const createSim = async (
       pendingNumBoids = Math.min(count, compute.boidLimit);
     },
     setPredator: (enabled: boolean) => params.set("mousePredator", enabled ? 1 : 0),
+    setSpringBonds: (enabled: boolean) => params.set("springEnabled", enabled ? 1 : 0),
     setBehavior: (mode: number, strength: number, flow: number, pulse: number) => {
       params.set("behaviorMode", mode);
       params.set("behaviorStrength", strength);
@@ -163,6 +170,7 @@ export const createSim = async (
       abort.abort();
       compute.dispose();
       rasterBuffer?.destroy();
+      springPartners?.destroy();
       rasterMaterial?.dispose();
     },
   };
