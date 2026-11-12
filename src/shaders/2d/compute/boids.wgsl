@@ -91,20 +91,20 @@ fn mergedBehaviours(boid: ptr<function, Boid>, localID: u32, firstCell: u32, las
       addNeighbour(pos, select(pos, o1.xy, j + 1u < tileEnd), o1.zw, &center, &close, &avgVel, &neighbours);
       addNeighbour(pos, select(pos, o2.xy, j + 2u < tileEnd), o2.zw, &center, &close, &avgVel, &neighbours);
     } else {
-      var j = start;
-      for (; j + 3u < end; j += 4u) {
-        let o0 = packBoid(loadBoid(sortedIndices[j]));
-        let o1 = packBoid(loadBoid(sortedIndices[j + 1u]));
-        let o2 = packBoid(loadBoid(sortedIndices[j + 2u]));
-        let o3 = packBoid(loadBoid(sortedIndices[j + 3u]));
-        addNeighbour(pos, o0.xy, o0.zw, &center, &close, &avgVel, &neighbours);
-        addNeighbour(pos, o1.xy, o1.zw, &center, &close, &avgVel, &neighbours);
-        addNeighbour(pos, o2.xy, o2.zw, &center, &close, &avgVel, &neighbours);
-        addNeighbour(pos, o3.xy, o3.zw, &center, &close, &avgVel, &neighbours);
-      }
-      for (; j < end; j += 1u) {
-        let other = packBoid(loadBoid(sortedIndices[j]));
-        addNeighbour(pos, other.xy, other.zw, &center, &close, &avgVel, &neighbours);
+      // Dense cells are sampled instead of making every boid inspect thousands
+      // of neighbours. Sparse groups still use the exact shared-tile path above.
+      let candidateCount = end - start;
+      let sampleCount = min(candidateCount, params.neighborSampleLimit);
+      if (sampleCount > 0u) {
+        let sampleStride = max(1u, (candidateCount + sampleCount - 1u) / sampleCount);
+        let phase = localID % sampleStride;
+        var j = start + phase;
+        if (j >= end) { j = start; }
+        for (var sample = 0u; sample < sampleCount && j < end; sample += 1u) {
+          let other = packBoid(loadBoid(sortedIndices[j]));
+          addNeighbour(pos, other.xy, other.zw, &center, &close, &avgVel, &neighbours);
+          j += sampleStride;
+        }
       }
     }
   }
