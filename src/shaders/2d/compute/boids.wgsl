@@ -7,7 +7,7 @@
 @binding(6) @group(0) var<storage, read_write> grid : array<u32>;
 // One packed rgba8 colour per pixel, rows from the bottom of the screen up.
 // Cleared to 0 each frame, which the display draws as the background.
-@binding(7) @group(0) var<storage, read_write> raster : array<u32>;
+@binding(7) @group(0) var<storage, read_write> raster : array<atomic<u32>>;
 
 // Neighbour rows staged once per group, as (pos, vel)
 var<workgroup> tile : array<vec4<f32>, tileSize>;
