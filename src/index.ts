@@ -130,19 +130,28 @@ const startSim = async (view3D: boolean) => {
   sim = null;
   ui.setView(view3D);
 
-  const { createSim } = view3D
-    ? await import("./main3d")
-    : await import("./main2d");
-  const next = await createSim(gpu, canvas, initialBoids);
-  if (start !== starting) {
-    next.dispose();
-    return;
+  try {
+    const { createSim } = view3D
+      ? await import("./main3d")
+      : await import("./main2d");
+    const next = await createSim(gpu, canvas, initialBoids);
+    if (start !== starting) {
+      next.dispose();
+      return;
+    }
+    sim = next;
+    const springSettings = ui.getSpringSettings();
+    sim.setSpringSettings?.(springSettings.length, springSettings.stretchiness, springSettings.connections);
+    ui.setLimit(sim.boidLimit);
+    loader.remove();
+  } catch (error) {
+    if (start !== starting) return;
+    const detail = error instanceof Error ? error.message : String(error);
+    loader.textContent = `GPU simulation failed to initialize.\n\n${detail}`;
+    loader.style.whiteSpace = "pre-wrap";
+    loader.setAttribute("role", "alert");
+    console.error("GPU simulation initialization failed:", error);
   }
-  sim = next;
-  const springSettings = ui.getSpringSettings();
-  sim.setSpringSettings?.(springSettings.length, springSettings.stretchiness, springSettings.connections);
-  ui.setLimit(sim.boidLimit);
-  loader.remove();
 };
 
 ui.on.viewChanged = startSim;
