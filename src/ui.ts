@@ -22,6 +22,7 @@ export const createUI = () => {
   const predatorToggle = getElement<HTMLInputElement>("predator-toggle");
   const springToggle = getElement<HTMLInputElement>("spring-toggle");
   const springSettingsPanel = getElement("spring-settings");
+  const springState = getElement("spring-state");
   const springLength = getElement<HTMLInputElement>("spring-length");
   const springStretchiness = getElement<HTMLInputElement>("spring-stretchiness");
   const springConnections = getElement<HTMLInputElement>("spring-connections");
@@ -117,6 +118,8 @@ export const createUI = () => {
   springToggle.onchange = () => {
     springToggle.blur();
     springSettingsPanel.classList.toggle("spring-settings--inactive", !springToggle.checked);
+    springState.textContent = springToggle.checked ? "ON" : "OFF";
+    springState.classList.toggle("spring-state--on", springToggle.checked);
     handlers.springBondsChanged(springToggle.checked);
   };
   springLength.oninput = emitSpringSettings;
@@ -143,6 +146,8 @@ export const createUI = () => {
   minLabel.textContent = format(minBoids);
   emitBehavior();
   springSettingsPanel.classList.toggle("spring-settings--inactive", !springToggle.checked);
+  springState.textContent = springToggle.checked ? "ON" : "OFF";
+  springState.classList.toggle("spring-state--on", springToggle.checked);
   emitSpringSettings();
   refresh();
 
