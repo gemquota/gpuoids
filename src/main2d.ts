@@ -28,6 +28,7 @@ export const createSim = async (
     simTime: "f32",
     dotRadius: "f32",
     renderStride: "u32",
+    neighborSampleLimit: "u32",
   });
   const { params } = compute;
   params.set("behaviorMode", 0);
@@ -62,9 +63,10 @@ export const createSim = async (
     const pixels = rasterWidth * rasterHeight;
     if (pixels === 0) return;
     const stride = Math.max(1, Math.min(256, Math.ceil(numBoids / Math.max(1, pixels * 0.58))));
-    const radius = numBoids >= 2_000_000 ? 0.56 : numBoids >= 262_144 ? 0.68 : 0.88;
+    const radius = numBoids >= 2_000_000 ? 0.56 : numBoids >= 262_144 ? 0.68 : numBoids >= 65_536 ? 0.9 : numBoids >= 1_024 ? 1.25 : 1.8;
     params.set("renderStride", stride);
     params.set("dotRadius", radius);
+    params.set("neighborSampleLimit", Math.max(8, Math.min(48, Math.round(48 * Math.sqrt(65_536 / numBoids)))));
     lastDensityPixels = pixels;
   };
 
