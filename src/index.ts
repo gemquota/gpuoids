@@ -7,6 +7,7 @@ type Sim = {
   frame: (deltaTime: number) => void;
   setNumBoids: (count: number) => void;
   setPredator: (enabled: boolean) => void;
+  setSpringBonds?: (enabled: boolean) => void;
   setBehavior?: (mode: number, strength: number, flow: number, pulse: number) => void;
   dispose: () => void;
 };
@@ -144,6 +145,7 @@ const startSim = async (view3D: boolean) => {
 ui.on.viewChanged = startSim;
 ui.on.numBoidsChanged = (count) => sim?.setNumBoids(count);
 ui.on.predatorChanged = (enabled) => sim?.setPredator(enabled);
+ui.on.springBondsChanged = (enabled) => sim?.setSpringBonds?.(enabled);
 ui.on.behaviorChanged = (mode, strength, flow, pulse) => sim?.setBehavior?.(mode, strength, flow, pulse);
 ui.on.benchmarkRequested = () => void runBenchmark();
 
