@@ -20,6 +20,7 @@ export const createUI = () => {
   const slider = getElement<HTMLInputElement>("boid-slider");
   const predatorLabel = getElement("predator-label");
   const predatorToggle = getElement<HTMLInputElement>("predator-toggle");
+  const springToggle = getElement<HTMLInputElement>("spring-toggle");
   const hint = getElement("hint");
   const benchmarkButton = getElement<HTMLButtonElement>("benchmark-button");
   const benchmarkResults = getElement<HTMLPreElement>("benchmark-results");
@@ -44,6 +45,7 @@ export const createUI = () => {
     numBoidsChanged: (_count: number) => {},
     viewChanged: (_is3D: boolean) => {},
     predatorChanged: (_enabled: boolean) => {},
+    springBondsChanged: (_enabled: boolean) => {},
     behaviorChanged: (_mode: number, _strength: number, _flow: number, _pulse: number) => {},
     benchmarkRequested: () => {},
   };
@@ -90,6 +92,10 @@ export const createUI = () => {
     refresh();
   };
   slider.onpointerup = () => slider.blur();
+  springToggle.onchange = () => {
+    springToggle.blur();
+    handlers.springBondsChanged(springToggle.checked);
+  };
   predatorToggle.onchange = () => {
     predatorToggle.blur();
     handlers.predatorChanged(predatorToggle.checked);
