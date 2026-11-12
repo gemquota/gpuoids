@@ -17,7 +17,7 @@ The baseline page uses the upstream simulation code with the same benchmark cont
 - Fixed 2D world dimensions that follow the viewport aspect ratio instead of changing with population.
 - Hard positional containment after integration, with damped wall reflection. Boids cannot drift outside the world or wrap around.
 - Density-aware circular rendering: at high populations the renderer samples a representative subset of boids and shrinks their screen-space footprint, while every boid still participates in simulation.
-- 8-byte packed 2D boid state (two `f16x2` words) and a compact 32-bit-per-agent spatial grid, reducing storage pressure enough to expose a 16,777,216-agent 2D capacity target on adapters with suitable limits.
+- 8-byte packed 2D boid state (two `f16x2` words) and a compact 32-bit-per-agent spatial grid, plus bounded neighbour sampling in dense cells, reducing storage and per-agent work enough to expose a 16,777,216-agent 2D capacity target on adapters with suitable limits.
 - GPU-side behaviour presets: classic, tight schooling, vortex/milling, orbiting schools, dispersal/anti-flocking and travelling waves. Influence, directional drift and wave modulation are uniform updates, not per-agent CPU work.
 - Two-finger touch pinch zoom; one-finger drag pans. Mouse drag and wheel zoom remain supported.
 - On-device population sweep with FPS, average frame time, p95 frame time and post-sample GPU queue-drain measurements.
