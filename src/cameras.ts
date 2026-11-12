@@ -39,7 +39,6 @@ const attachDrag = (
   canvas.addEventListener(
     "pointermove",
     (event) => {
-      // A locked pointer stays put, so only its movement is reported
       const locked = document.pointerLockElement === canvas;
       const dx = locked ? event.movementX : event.clientX - lastX;
       const dy = locked ? event.movementY : event.clientY - lastY;
@@ -53,9 +52,7 @@ const attachDrag = (
   const release = () => {
     if (!dragging) return;
     dragging = false;
-    if (document.pointerLockElement === canvas) {
-      document.exitPointerLock();
-    }
+    if (document.pointerLockElement === canvas) document.exitPointerLock();
   };
   canvas.addEventListener("pointerup", release, { signal });
   canvas.addEventListener("pointercancel", release, { signal });
@@ -77,7 +74,6 @@ export const createCamera2D = (canvas: HTMLCanvasElement, signal: AbortSignal) =
     y: 0,
     orthoSize: 1,
 
-    // Centres the view at this size, which is also the furthest it zooms out
     resetView: (size: number) => {
       view.x = 0;
       view.y = 0;
@@ -93,10 +89,78 @@ export const createCamera2D = (canvas: HTMLCanvasElement, signal: AbortSignal) =
     },
   };
 
-  attachDrag(canvas, signal, (dx, dy) => {
-    const panSpeed = view.orthoSize / 57.5;
-    view.x -= dx * pointerSensitivity * panSpeed;
-    view.y += dy * pointerSensitivity * panSpeed;
+  // Pointer tracking is shared by mouse, pen and touch. Two touch pointers
+  // pinch to zoom; a single pointer pans. This avoids treating a pinch as two
+  // competing one-finger drags.
+  const pointers = new Map<number, { x: number; y: number; type: string }>();
+  let pinchDistance = 0;
+
+  const distance = (a: { x: number; y: number }, b: { x: number; y: number }) =>
+    Math.hypot(a.x - b.x, a.y - b.y);
+
+  canvas.addEventListener(
+    "pointerdown",
+    (event) => {
+      if (event.pointerType === "mouse" && event.button !== 0 && event.button !== 2) return;
+      pointers.set(event.pointerId, {
+        x: event.clientX,
+        y: event.clientY,
+        type: event.pointerType,
+      });
+      canvas.setPointerCapture(event.pointerId);
+      if (event.pointerType === "mouse") {
+        void canvas.requestPointerLock?.()?.catch(() => {
+          // Pointer movement remains available without pointer lock
+        });
+      }
+      const touches = [...pointers.values()].filter((pointer) => pointer.type === "touch");
+      pinchDistance = touches.length >= 2 ? distance(touches[0], touches[1]) : 0;
+    },
+    { signal },
+  );
+
+  canvas.addEventListener(
+    "pointermove",
+    (event) => {
+      const previous = pointers.get(event.pointerId);
+      if (!previous) return;
+
+      const locked = document.pointerLockElement === canvas;
+      const dx = locked ? event.movementX : event.clientX - previous.x;
+      const dy = locked ? event.movementY : event.clientY - previous.y;
+      previous.x = event.clientX;
+      previous.y = event.clientY;
+
+      const touches = [...pointers.values()].filter((pointer) => pointer.type === "touch");
+      if (touches.length >= 2) {
+        const nextDistance = distance(touches[0], touches[1]);
+        if (pinchDistance > 0 && nextDistance > 0) {
+          // A wider pinch zooms in (smaller orthographic size).
+          zoom = clamp(zoom * (pinchDistance / nextDistance), maxZoom, minZoom);
+        }
+        pinchDistance = nextDistance;
+        return;
+      }
+
+      if (pointers.size === 1) {
+        const panSpeed = view.orthoSize / 57.5;
+        view.x -= dx * pointerSensitivity * panSpeed;
+        view.y += dy * pointerSensitivity * panSpeed;
+      }
+    },
+    { signal },
+  );
+
+  const releasePointer = (event: PointerEvent) => {
+    pointers.delete(event.pointerId);
+    const touches = [...pointers.values()].filter((pointer) => pointer.type === "touch");
+    pinchDistance = touches.length >= 2 ? distance(touches[0], touches[1]) : 0;
+    if (document.pointerLockElement === canvas) document.exitPointerLock();
+  };
+  canvas.addEventListener("pointerup", releasePointer, { signal });
+  canvas.addEventListener("pointercancel", releasePointer, { signal });
+  canvas.addEventListener("contextmenu", (event) => event.preventDefault(), {
+    signal,
   });
 
   canvas.addEventListener(
@@ -119,7 +183,6 @@ const keyRamp = 3;
 const moveSpeed = 10;
 const fastMultiplier = 3;
 const pitchLimit = degToRad(88);
-// Radians per pixel dragged
 const lookSensitivity = degToRad(pointerSensitivity * 1.5);
 
 export const createCamera3D = (
@@ -127,7 +190,7 @@ export const createCamera3D = (
   canvas: HTMLCanvasElement,
   signal: AbortSignal,
 ) => {
-  camera.rotation.order = "YXZ"; // Yaw, then pitch, with no roll
+  camera.rotation.order = "YXZ";
   const keyAxes = { x: 0, y: 0, z: 0 };
   const heldKeys = new Set<string>();
 
@@ -143,7 +206,6 @@ export const createCamera3D = (
   window.addEventListener(
     "keydown",
     (event) => {
-      // Skip shortcuts, whose keyup may never arrive
       if (event.ctrlKey || event.metaKey || event.altKey) return;
       heldKeys.add(event.code);
     },
@@ -156,17 +218,13 @@ export const createCamera3D = (
 
   const held = (...codes: string[]) => codes.some((code) => heldKeys.has(code));
 
-  // Eases a key axis towards -1, 0 or 1, snapping through zero when reversing
   const ramp = (value: number, negative: boolean, positive: boolean, deltaTime: number) => {
     const target = (positive ? 1 : 0) - (negative ? 1 : 0);
-    if (value * target < 0) {
-      value = 0;
-    }
+    if (value * target < 0) value = 0;
     return moveTowards(value, target, keyRamp * deltaTime);
   };
 
   return {
-    // Puts the camera here, looking down the simulation's +z (three.js's -z)
     resetView: (z: number) => {
       camera.position.set(0, 0, z);
       camera.rotation.set(0, 0, 0);
