@@ -290,9 +290,9 @@ fn main(@builtin(workgroup_id) GroupID : vec3<u32>, @builtin(local_invocation_in
         isAttached = false;
         strainFrames = 0u;
       }
-    } else if (neighbourCount >= 3u) {
-      // Bootstrap an established local school. Requiring several neighbours
-      // prevents isolated pairs from becoming a flock by accident.
+    } else if (neighbourCount >= 2u) {
+      // Bootstrap a small local patch from at least three organisms. A higher
+      // threshold leaves low-population simulations with no visible springs.
       let captureOffset = boid.pos - seedCenter;
       let captureDistance = length(captureOffset);
       attachmentOffset = select(vec2<f32>(params.springLength, 0.0), captureOffset * (params.springLength / max(captureDistance, 0.0001)), captureDistance > 0.0001);
