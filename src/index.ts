@@ -2,7 +2,14 @@ import "./style.css";
 import { initRenderer } from "./gpu";
 import { createUI, initialBoids } from "./ui";
 
-type Sim = Awaited<ReturnType<typeof import("./main2d").createSim>>;
+type Sim = {
+  boidLimit: number;
+  frame: (deltaTime: number) => void;
+  setNumBoids: (count: number) => void;
+  setPredator: (enabled: boolean) => void;
+  setBehavior?: (mode: number, strength: number, flow: number, pulse: number) => void;
+  dispose: () => void;
+};
 
 const canvas = document.getElementById("renderCanvas") as HTMLCanvasElement;
 const loader = document.getElementById("loader") as HTMLElement;
@@ -137,7 +144,7 @@ const startSim = async (view3D: boolean) => {
 ui.on.viewChanged = startSim;
 ui.on.numBoidsChanged = (count) => sim?.setNumBoids(count);
 ui.on.predatorChanged = (enabled) => sim?.setPredator(enabled);
-ui.on.behaviorChanged = (mode, strength, flow, pulse) => sim?.setBehavior(mode, strength, flow, pulse);
+ui.on.behaviorChanged = (mode, strength, flow, pulse) => sim?.setBehavior?.(mode, strength, flow, pulse);
 ui.on.benchmarkRequested = () => void runBenchmark();
 
 const resize = () => {
