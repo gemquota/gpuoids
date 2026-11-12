@@ -1,7 +1,7 @@
 // Rasterises compact circular boids into the screen-sized pixel buffer.
 
 const boidScale: f32 = 0.1;
-const boidRadius: f32 = 0.5;
+const boidRadius: f32 = 0.4;
 
 fn getBoidColour(boid: Boid) -> u32 {
   var d = 1.0;
