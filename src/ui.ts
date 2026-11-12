@@ -23,6 +23,7 @@ export const createUI = () => {
   const hint = getElement("hint");
   const benchmarkButton = getElement<HTMLButtonElement>("benchmark-button");
   const benchmarkResults = getElement<HTMLPreElement>("benchmark-results");
+  const copyBenchmark = getElement<HTMLButtonElement>("copy-benchmark");
 
   let numBoids = initialBoids;
   let maxBoids = minBoids;
@@ -86,6 +87,14 @@ export const createUI = () => {
   };
 
   benchmarkButton.onclick = () => handlers.benchmarkRequested();
+  copyBenchmark.onclick = async () => {
+    try {
+      await navigator.clipboard.writeText(benchmarkResults.textContent ?? "");
+      copyBenchmark.textContent = "Copied";
+    } catch {
+      copyBenchmark.textContent = "Select and copy the results above";
+    }
+  };
 
   minLabel.textContent = format(minBoids);
   refresh();
@@ -110,6 +119,7 @@ export const createUI = () => {
     setBenchmarkResults: (report: string) => {
       benchmarkResults.hidden = !report;
       benchmarkResults.textContent = report;
+      copyBenchmark.hidden = !report;
     },
 
     setView: (view3D: boolean) => {
