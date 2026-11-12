@@ -5,6 +5,7 @@ import { type GPUContext, createStorageBuffer, shareWithRenderer } from "./gpu";
 import { createRasterMaterial, kernels2d } from "./shaders/2d";
 
 const backgroundColour = [0.19215687, 0.3019608, 0.4745098] as const;
+const worldHalfHeight = 2.5;
 
 export const createSim = async (
   { device, renderer }: GPUContext,
@@ -48,6 +49,8 @@ export const createSim = async (
   let rasterMaterial: NodeMaterial | null = null;
   let rasterWidth = 0;
   let rasterHeight = 0;
+  let previousAspect = 0;
+  let viewInitialized = false;
 
   const ensureRaster = () => {
     const width = Math.max(1, canvas.width);
@@ -76,11 +79,16 @@ export const createSim = async (
   };
 
   const setup = () => {
-    // Zoom camera based on number of boids
-    view.resetView(Math.max(2, Math.sqrt(numBoids) / 10 + edgeMargin));
+    // Keep one fixed world whose width follows the current screen aspect ratio.
+    // Population changes must not silently resize the ecosystem.
+    if (!viewInitialized) {
+      view.resetView(worldHalfHeight);
+      viewInitialized = true;
+    }
     const aspect = rasterWidth / rasterHeight;
-    const xBound = view.orthoSize * aspect - edgeMargin;
-    const yBound = view.orthoSize - edgeMargin;
+    previousAspect = aspect;
+    const xBound = Math.max(edgeMargin, worldHalfHeight * aspect - edgeMargin);
+    const yBound = worldHalfHeight - edgeMargin;
 
     // Spatial grid setup, GPU cells are half as wide in x
     const gridDimX = (Math.floor((xBound * 2) / visualRange) + 30) * 2;
@@ -105,9 +113,11 @@ export const createSim = async (
     }
 
     ensureRaster();
-    view.update(deltaTime);
-
     const aspect = rasterWidth / rasterHeight;
+    if (Math.abs(aspect - previousAspect) > 0.0001) {
+      setup();
+    }
+    view.update(deltaTime);
     const mouseX =
       (pointer.x / canvas.clientWidth - 0.5) * view.orthoSize * 2 * aspect + view.x;
     const mouseY =
