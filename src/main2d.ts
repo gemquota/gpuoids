@@ -66,7 +66,7 @@ export const createSim = async (
     const radius = numBoids >= 2_000_000 ? 0.56 : numBoids >= 262_144 ? 0.68 : numBoids >= 65_536 ? 0.9 : numBoids >= 1_024 ? 1.25 : 1.8;
     params.set("renderStride", stride);
     params.set("dotRadius", radius);
-    params.set("neighborSampleLimit", Math.max(8, Math.min(48, Math.round(48 * Math.sqrt(65_536 / numBoids)))));
+    params.set("neighborSampleLimit", Math.max(4, Math.min(32, Math.round(32 * Math.sqrt(65_536 / numBoids)))));
     lastDensityPixels = pixels;
   };
 
