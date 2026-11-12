@@ -22,7 +22,7 @@ fn storeBoid(index: u32, boid: Boid) {
   boidsOut[index * 2u + 1u] = pack2x16float(boid.vel);
 }
 
-fn addNeighbour(pos: vec2<f32>, otherPos: vec2<f32>, otherVel: vec2<f32>, otherIndex: u32, center: ptr<function, vec2<f32>>, close: ptr<function, vec2<f32>>, avgVel: ptr<function, vec2<f32>>, neighbours: ptr<function, u32>, closestIndex: ptr<function, u32>, closestDistSq: ptr<function, f32>, attachedCenter: ptr<function, vec2<f32>>, attachedVelocity: ptr<function, vec2<f32>>, attachedCount: ptr<function, u32>, closestAttachedDistSq: ptr<function, f32>, seedCenter: ptr<function, vec2<f32>>, neighbourCount: ptr<function, u32>) {
+fn addNeighbour(pos: vec2<f32>, otherPos: vec2<f32>, otherVel: vec2<f32>, otherIndex: u32, center: ptr<function, vec2<f32>>, close: ptr<function, vec2<f32>>, avgVel: ptr<function, vec2<f32>>, neighbours: ptr<function, u32>, closestIndex: ptr<function, u32>, closestDistSq: ptr<function, f32>, attachedCenter: ptr<function, vec2<f32>>, attachedVelocity: ptr<function, vec2<f32>>, attachedCount: ptr<function, u32>, closestAttachedDistSq: ptr<function, f32>) {
   let diff = pos - otherPos;
   let distSq = dot(diff, diff);
   if (distSq < params.visualRangeSq && distSq > 0.0) {
@@ -45,7 +45,7 @@ fn addNeighbour(pos: vec2<f32>, otherPos: vec2<f32>, otherVel: vec2<f32>, otherI
   }
 }
 
-fn mergedBehaviours(boid: ptr<function, Boid>, localID: u32, firstCell: u32, lastCell: u32, attachedCenter: ptr<function, vec2<f32>>, attachedVelocity: ptr<function, vec2<f32>>, attachedCount: ptr<function, u32>, closestAttachedDistSq: ptr<function, f32>) {
+fn mergedBehaviours(boid: ptr<function, Boid>, localID: u32, firstCell: u32, lastCell: u32, attachedCenter: ptr<function, vec2<f32>>, attachedVelocity: ptr<function, vec2<f32>>, attachedCount: ptr<function, u32>, closestAttachedDistSq: ptr<function, f32>, seedCenter: ptr<function, vec2<f32>>, neighbourCount: ptr<function, u32>) {
   var center : vec2<f32> = vec2<f32>();
   var close : vec2<f32> = vec2<f32>();
   var avgVel : vec2<f32> = vec2<f32>();
@@ -58,6 +58,8 @@ fn mergedBehaviours(boid: ptr<function, Boid>, localID: u32, firstCell: u32, las
   *attachedVelocity = vec2<f32>(0.0);
   *attachedCount = 0u;
   *closestAttachedDistSq = 1e30;
+  *seedCenter = vec2<f32>(0.0);
+  *neighbourCount = 0u;
   *seedCenter = vec2<f32>(0.0);
   *neighbourCount = 0u;
   let cell = getGridID(pos);
@@ -129,9 +131,11 @@ fn mergedBehaviours(boid: ptr<function, Boid>, localID: u32, firstCell: u32, las
   }
 
   *neighbourCount = neighbours;
+  *neighbourCount = neighbours;
   if (neighbours > 0u) {
     let invNeighbours = 1.0 / f32(neighbours);
     center *= invNeighbours;
+    *seedCenter = center;
     *seedCenter = center;
     avgVel *= invNeighbours;
 
@@ -231,6 +235,8 @@ fn main(@builtin(workgroup_id) GroupID : vec3<u32>, @builtin(local_invocation_in
   var attachedVelocity = vec2<f32>(0.0);
   var attachedCount = 0u;
   var closestAttachedDistSq = 1e30;
+  var seedCenter = vec2<f32>(0.0);
+  var neighbourCount = 0u;
   mergedBehaviours(&boid, localID, firstCell, lastCell, &attachedCenter, &attachedVelocity, &attachedCount, &closestAttachedDistSq, &seedCenter, &neighbourCount);
 
   if (params.springEnabled > 0u) {
