@@ -255,7 +255,7 @@ fn main(@builtin(workgroup_id) GroupID : vec3<u32>, @builtin(local_invocation_in
         if (distance > 0.9) {
           strainFrames = min(strainFrames + 1u, 127u);
         } else {
-          strainFrames = select(strainFrames - 1u, 0u, strainFrames > 0u);
+          if (strainFrames > 0u) { strainFrames -= 1u; }
         }
         if (strainFrames >= 18u) {
           isAttached = false;
