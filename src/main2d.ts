@@ -12,9 +12,7 @@ export const createSim = async (
   canvas: HTMLCanvasElement,
   initialBoids: number,
 ) => {
-  // The raster's colours go to the screen as they are
   renderer.outputColorSpace = LinearSRGBColorSpace;
-
   const compute = await createBoidCompute(device, kernels2d, {
     mousePredator: "u32",
     zoom: "f32",
@@ -23,27 +21,33 @@ export const createSim = async (
     renderHeight: "u32",
     viewportHalfSize: "vec2<f32>",
     cameraPos: "vec2<f32>",
+    behaviorMode: "u32",
+    behaviorStrength: "f32",
+    flowBias: "vec2<f32>",
+    modulation: "f32",
+    simTime: "f32",
+    dotRadius: "f32",
+    renderStride: "u32",
   });
   const { params } = compute;
+  params.set("behaviorMode", 0);
+  params.set("behaviorStrength", 1);
+  params.set("flowBias", [0, 0]);
+  params.set("modulation", 0);
+  params.set("simTime", 0);
+  params.set("dotRadius", 0.85);
+  params.set("renderStride", 1);
 
   const abort = new AbortController();
   const view = createCamera2D(canvas, abort.signal);
-
-  // Where the pointer is on the canvas, in CSS pixels
   const pointer = { x: 0, y: 0 };
-  canvas.addEventListener(
-    "pointermove",
-    (event) => {
-      pointer.x = event.offsetX;
-      pointer.y = event.offsetY;
-    },
-    { signal: abort.signal },
-  );
+  canvas.addEventListener("pointermove", (event) => {
+    pointer.x = event.offsetX;
+    pointer.y = event.offsetY;
+  }, { signal: abort.signal });
 
   let numBoids = initialBoids;
   let pendingNumBoids = 0;
-
-  // Screen sized raster the boids are drawn into, shown by a fullscreen quad
   let quad: QuadMesh | null = null;
   let rasterBuffer: GPUBuffer | null = null;
   let rasterMaterial: NodeMaterial | null = null;
@@ -51,13 +55,23 @@ export const createSim = async (
   let rasterHeight = 0;
   let previousAspect = 0;
   let viewInitialized = false;
+  let simTime = 0;
+  let lastDensityPixels = 0;
+
+  const updateRasterDensity = () => {
+    const pixels = rasterWidth * rasterHeight;
+    if (pixels === 0) return;
+    const stride = Math.max(1, Math.min(256, Math.ceil(numBoids / Math.max(1, pixels * 0.58))));
+    const radius = numBoids >= 2_000_000 ? 0.56 : numBoids >= 262_144 ? 0.68 : 0.88;
+    params.set("renderStride", stride);
+    params.set("dotRadius", radius);
+    lastDensityPixels = pixels;
+  };
 
   const ensureRaster = () => {
     const width = Math.max(1, canvas.width);
     const height = Math.max(1, canvas.height);
-    if (width === rasterWidth && height === rasterHeight) {
-      return;
-    }
+    if (width === rasterWidth && height === rasterHeight) return;
 
     rasterBuffer?.destroy();
     rasterMaterial?.dispose();
@@ -70,17 +84,12 @@ export const createSim = async (
       height,
       backgroundColour,
     );
-    if (quad) {
-      quad.material = rasterMaterial;
-    } else {
-      quad = new QuadMesh(rasterMaterial);
-    }
+    if (quad) quad.material = rasterMaterial;
+    else quad = new QuadMesh(rasterMaterial);
     compute.setViewBuffers({ raster: rasterBuffer });
   };
 
   const setup = () => {
-    // Keep one fixed world whose width follows the current screen aspect ratio.
-    // Population changes must not silently resize the ecosystem.
     if (!viewInitialized) {
       view.resetView(worldHalfHeight);
       viewInitialized = true;
@@ -89,52 +98,42 @@ export const createSim = async (
     previousAspect = aspect;
     const xBound = (worldHalfHeight - edgeMargin) * aspect;
     const yBound = worldHalfHeight - edgeMargin;
-
-    // Spatial grid setup, GPU cells are half as wide in x
     const gridDimX = (Math.floor((xBound * 2) / visualRange) + 30) * 2;
     const gridDimY = Math.floor((yBound * 2) / visualRange) + 30;
-    compute.setup(numBoids, gridDimX * gridDimY, {
-      xBound,
-      yBound,
-      gridDimX,
-      gridDimY,
-    });
+    compute.setup(numBoids, gridDimX * gridDimY, { xBound, yBound, gridDimX, gridDimY });
+    updateRasterDensity();
   };
 
   ensureRaster();
   setup();
 
   const frame = (deltaTime: number) => {
-    // Restart here rather than from the slider, so it happens at most once a frame
     if (pendingNumBoids > 0) {
       numBoids = pendingNumBoids;
       pendingNumBoids = 0;
       setup();
     }
-
     ensureRaster();
+    if (rasterWidth * rasterHeight !== lastDensityPixels) updateRasterDensity();
     const aspect = rasterWidth / rasterHeight;
-    if (Math.abs(aspect - previousAspect) > 0.0001) {
-      setup();
-    }
+    if (Math.abs(aspect - previousAspect) > 0.0001) setup();
+
     view.update(deltaTime);
-    const mouseX =
-      (pointer.x / canvas.clientWidth - 0.5) * view.orthoSize * 2 * aspect + view.x;
-    const mouseY =
-      -(pointer.y / canvas.clientHeight - 0.5) * view.orthoSize * 2 + view.y;
+    const mouseX = (pointer.x / canvas.clientWidth - 0.5) * view.orthoSize * 2 * aspect + view.x;
+    const mouseY = -(pointer.y / canvas.clientHeight - 0.5) * view.orthoSize * 2 + view.y;
     params.set("zoom", view.orthoSize / 3);
     params.set("mousePos", [mouseX, mouseY]);
     params.set("renderWidth", rasterWidth);
     params.set("renderHeight", rasterHeight);
     params.set("viewportHalfSize", [view.orthoSize * aspect, view.orthoSize]);
     params.set("cameraPos", [view.x, view.y]);
+    simTime += deltaTime;
+    params.set("simTime", simTime);
 
     const encoder = device.createCommandEncoder();
-    // Cleared first, the boids kernel draws the boids
     encoder.clearBuffer(rasterBuffer!);
     compute.encode(encoder, deltaTime);
     device.queue.submit([encoder.finish()]);
-
     quad!.render(renderer);
   };
 
@@ -144,8 +143,12 @@ export const createSim = async (
     setNumBoids: (count: number) => {
       pendingNumBoids = Math.min(count, compute.boidLimit);
     },
-    setPredator: (enabled: boolean) => {
-      params.set("mousePredator", enabled ? 1 : 0);
+    setPredator: (enabled: boolean) => params.set("mousePredator", enabled ? 1 : 0),
+    setBehavior: (mode: number, strength: number, flow: number, pulse: number) => {
+      params.set("behaviorMode", mode);
+      params.set("behaviorStrength", strength);
+      params.set("flowBias", [flow, 0]);
+      params.set("modulation", pulse);
     },
     dispose: () => {
       abort.abort();
