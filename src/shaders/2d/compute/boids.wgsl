@@ -4,7 +4,7 @@
 @binding(3) @group(0) var<storage, read> sortedIndices : array<u32>;
 @binding(4) @group(0) var<storage, read> gridOffsets : array<u32>;
 @binding(5) @group(0) var<storage, read_write> gridOffsetsIn : array<atomic<u32>>;
-@binding(6) @group(0) var<storage, read_write> grid : array<vec2<u32>>;
+@binding(6) @group(0) var<storage, read_write> grid : array<u32>;
 // One packed rgba8 colour per pixel, rows from the bottom of the screen up.
 // Cleared to 0 each frame, which the display draws as the background.
 @binding(7) @group(0) var<storage, read_write> raster : array<u32>;
@@ -223,7 +223,8 @@ fn main(@builtin(workgroup_id) GroupID : vec3<u32>, @builtin(local_invocation_in
 
     // Bin the boid into next frame's grid, saving a separate update grid pass
     let cell = getGridID(boid.pos);
-    grid[index] = vec2<u32>(cell, atomicAdd(&gridOffsetsIn[cell], 1u));
+    grid[index] = cell;
+  atomicAdd(&gridOffsetsIn[cell], 1u);
 
     // Drawing here saves a separate pass over every boid
     rasterizeBoid(boid, index);
