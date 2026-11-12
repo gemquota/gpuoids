@@ -33,6 +33,8 @@ export const createSim = async (
     springLength: "f32",
     springStretchiness: "f32",
     springConnections: "u32",
+    attachmentReadOffset: "u32",
+    attachmentWriteOffset: "u32",
   });
   const { params } = compute;
   params.set("behaviorMode", 0);
@@ -60,8 +62,9 @@ export const createSim = async (
   let pendingNumBoids = 0;
   let quad: QuadMesh | null = null;
   let rasterBuffer: GPUBuffer | null = null;
-  let flockAttachmentsIn: GPUBuffer | null = null;
-  let flockAttachmentsOut: GPUBuffer | null = null;
+  let flockAttachments: GPUBuffer | null = null;
+  let attachmentReadOffset = 0;
+  let attachmentWriteOffset = 0;
   let rasterMaterial: NodeMaterial | null = null;
   let rasterWidth = 0;
   let rasterHeight = 0;
@@ -99,7 +102,7 @@ export const createSim = async (
     );
     if (quad) quad.material = rasterMaterial;
     else quad = new QuadMesh(rasterMaterial);
-    if (flockAttachmentsIn && flockAttachmentsOut) compute.setViewBuffers({ raster: rasterBuffer, flockAttachmentsIn, flockAttachmentsOut });
+    if (flockAttachments) compute.setViewBuffers({ raster: rasterBuffer, flockAttachments });
   };
 
   const setup = () => {
@@ -113,11 +116,18 @@ export const createSim = async (
     const yBound = worldHalfHeight - edgeMargin;
     const gridDimX = (Math.floor((xBound * 2) / visualRange) + 30) * 2;
     const gridDimY = Math.floor((yBound * 2) / visualRange) + 30;
-    flockAttachmentsIn?.destroy();
-    flockAttachmentsOut?.destroy();
-    flockAttachmentsIn = createStorageBuffer(device, numBoids * 8);
-    flockAttachmentsOut = createStorageBuffer(device, numBoids * 8);
-    compute.setViewBuffers({ raster: rasterBuffer!, flockAttachmentsIn, flockAttachmentsOut });
+    flockAttachments?.destroy();
+    // Two generations in one allocation: one read half and one write half.
+    // Clear both so the first spring-enabled frame never reads uninitialised memory.
+    flockAttachments = createStorageBuffer(device, numBoids * 16);
+    const clearEncoder = device.createCommandEncoder();
+    clearEncoder.clearBuffer(flockAttachments);
+    device.queue.submit([clearEncoder.finish()]);
+    attachmentReadOffset = 0;
+    attachmentWriteOffset = numBoids;
+    params.set("attachmentReadOffset", attachmentReadOffset);
+    params.set("attachmentWriteOffset", attachmentWriteOffset);
+    compute.setViewBuffers({ raster: rasterBuffer!, flockAttachments });
     compute.setup(numBoids, gridDimX * gridDimY, { xBound, yBound, gridDimX, gridDimY });
     updateRasterDensity();
   };
@@ -151,13 +161,14 @@ export const createSim = async (
 
     const encoder = device.createCommandEncoder();
     encoder.clearBuffer(rasterBuffer!);
+    params.set("attachmentReadOffset", attachmentReadOffset);
+    params.set("attachmentWriteOffset", attachmentWriteOffset);
     compute.encode(encoder, deltaTime);
     device.queue.submit([encoder.finish()]);
-    if (flockAttachmentsIn && flockAttachmentsOut) {
-      const previous = flockAttachmentsIn;
-      flockAttachmentsIn = flockAttachmentsOut;
-      flockAttachmentsOut = previous;
-      compute.setViewBuffers({ raster: rasterBuffer!, flockAttachmentsIn, flockAttachmentsOut });
+    if (flockAttachments) {
+      const previousReadOffset = attachmentReadOffset;
+      attachmentReadOffset = attachmentWriteOffset;
+      attachmentWriteOffset = previousReadOffset;
     }
     quad!.render(renderer);
     gpuBusy = true;
@@ -190,8 +201,7 @@ export const createSim = async (
       abort.abort();
       compute.dispose();
       rasterBuffer?.destroy();
-      flockAttachmentsIn?.destroy();
-      flockAttachmentsOut?.destroy();
+      flockAttachments?.destroy();
       rasterMaterial?.dispose();
     },
   };
