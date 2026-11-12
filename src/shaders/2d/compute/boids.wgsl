@@ -276,7 +276,7 @@ fn main(@builtin(workgroup_id) GroupID : vec3<u32>, @builtin(local_invocation_in
       strainFrames = 0u;
     }
 
-    if (!isAttached && parentCandidate != 0xffffffffu) {
+    if (!wasAttached && !isAttached && parentCandidate != 0xffffffffu) {
       parentIndex = parentCandidate;
       restLength = max(params.springLength, 0.02);
       isAttached = true;
