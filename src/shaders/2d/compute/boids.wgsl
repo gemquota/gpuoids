@@ -200,7 +200,8 @@ fn main(@builtin(workgroup_id) GroupID : vec3<u32>, @builtin(local_invocation_in
   // Threads past the last boid still take part in the staging, as copies of the last boid
   let last = min(first + searchBlockSize, params.numBoids) - 1u;
   let index = first + localID;
-  var boid = loadBoid(sortedIndices[min(index, last)]);
+  let boidIndex = sortedIndices[min(index, last)];
+  var boid = loadBoid(boidIndex);
   let firstCell = getGridID(loadBoid(sortedIndices[first]).pos);
   let lastCell = getGridID(loadBoid(sortedIndices[last]).pos);
 
@@ -228,14 +229,13 @@ fn main(@builtin(workgroup_id) GroupID : vec3<u32>, @builtin(local_invocation_in
 
   // Written in cell order, so next frame's neighbour reads stay close together
   if (index < params.numBoids) {
-    storeBoid(index, boid);
+    storeBoid(boidIndex, boid);
 
-    // Bin the boid into next frame's grid, saving a separate update grid pass
+    // Preserve stable identity while rebuilding the next frame's spatial bins.
     let cell = getGridID(boid.pos);
-    grid[index] = cell;
-  atomicAdd(&gridOffsetsIn[cell], 1u);
+    grid[boidIndex] = cell;
+    atomicAdd(&gridOffsetsIn[cell], 1u);
 
-    // Drawing here saves a separate pass over every boid
-    rasterizeBoid(boid, index);
+    rasterizeBoid(boid, boidIndex);
   }
 }
