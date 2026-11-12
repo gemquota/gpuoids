@@ -87,7 +87,7 @@ export const createSim = async (
     }
     const aspect = rasterWidth / rasterHeight;
     previousAspect = aspect;
-    const xBound = Math.max(edgeMargin, worldHalfHeight * aspect - edgeMargin);
+    const xBound = (worldHalfHeight - edgeMargin) * aspect;
     const yBound = worldHalfHeight - edgeMargin;
 
     // Spatial grid setup, GPU cells are half as wide in x
