@@ -39,6 +39,7 @@ try {
 
     const ready = await page.waitForFunction(
       () => !document.getElementById("loader") && !!document.getElementById("benchmark-button"),
+      undefined,
       { timeout: 90_000 },
     ).then(() => true).catch(() => false);
 
@@ -74,6 +75,7 @@ try {
         const button = document.getElementById("benchmark-button");
         return !!button && !button.disabled && button.textContent?.includes("Run GPU benchmark");
       },
+      undefined,
       { timeout: 600_000 },
     );
 
