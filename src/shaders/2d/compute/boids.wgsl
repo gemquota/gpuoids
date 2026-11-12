@@ -14,9 +14,7 @@
 // Neighbour rows staged once per group, as (pos, vel)
 var<workgroup> tile : array<vec4<f32>, tileSize>;
 
-const elasticStiffness: f32 = 5.0;
 const elasticDamping: f32 = 1.4;
-const elasticBreakDistance: f32 = 0.9;
 const elasticReleaseFrames: u32 = 18u;
 const elasticMaxAcceleration: f32 = 8.0;
 
@@ -33,7 +31,7 @@ fn addNeighbour(pos: vec2<f32>, otherPos: vec2<f32>, otherVel: vec2<f32>, otherI
   let diff = pos - otherPos;
   let distSq = dot(diff, diff);
   if (distSq < params.visualRangeSq && distSq > 0.0) {
-    if (params.springEnabled > 0u && otherIndex < params.numBoids && flockAttachmentsIn[otherIndex].y != 0u) {
+    if (params.springEnabled > 0u && *attachedCount < params.springConnections && otherIndex < params.numBoids && flockAttachmentsIn[otherIndex].y != 0u) {
       *attachedCenter += otherPos;
       *attachedVelocity += otherVel;
       *attachedCount += 1u;
@@ -255,10 +253,13 @@ fn main(@builtin(workgroup_id) GroupID : vec3<u32>, @builtin(local_invocation_in
       attachedCenter *= invAttached;
       attachedVelocity *= invAttached;
       if (wasAttached) {
-        let target = attachedCenter + attachmentOffset;
+        let offsetLength = length(attachmentOffset);
+        let restOffset = select(vec2<f32>(params.springLength, 0.0), attachmentOffset * (params.springLength / max(offsetLength, 0.0001)), offsetLength > 0.0001);
+        let target = attachedCenter + restOffset;
         let delta = target - boid.pos;
         let distance = length(delta);
-        if (distance > elasticBreakDistance) {
+        let breakDistance = max(params.springLength * 2.5, 0.2);
+        if (distance > breakDistance) {
           strainFrames = min(strainFrames + 1u, 127u);
         } else {
           if (strainFrames > 0u) { strainFrames -= 1u; }
@@ -269,13 +270,16 @@ fn main(@builtin(workgroup_id) GroupID : vec3<u32>, @builtin(local_invocation_in
         } else if (distance > 0.0001) {
           let direction = delta / distance;
           let relativeSpeed = dot(attachedVelocity - boid.vel, direction);
-          let springAcceleration = clamp(distance * elasticStiffness - relativeSpeed * elasticDamping, -elasticMaxAcceleration, elasticMaxAcceleration);
+          let stiffness = mix(18.0, 1.5, clamp(params.springStretchiness, 0.0, 1.0));
+          let springAcceleration = clamp(distance * stiffness - relativeSpeed * elasticDamping, -elasticMaxAcceleration, elasticMaxAcceleration);
           boid.vel += direction * springAcceleration * params.dt;
         }
       } else if (closestAttachedDistSq <= params.minDistanceSq * 2.25) {
         // Capture the local shape offset at first contact. The anchor is the
         // nearby attached cohort, never one arbitrarily selected boid.
-        attachmentOffset = boid.pos - attachedCenter;
+        let captureOffset = boid.pos - attachedCenter;
+        let captureDistance = length(captureOffset);
+        attachmentOffset = select(vec2<f32>(params.springLength, 0.0), captureOffset * (params.springLength / max(captureDistance, 0.0001)), captureDistance > 0.0001);
         isAttached = true;
         strainFrames = 0u;
       }
@@ -289,7 +293,9 @@ fn main(@builtin(workgroup_id) GroupID : vec3<u32>, @builtin(local_invocation_in
     } else if (neighbourCount >= 3u) {
       // Bootstrap an established local school. Requiring several neighbours
       // prevents isolated pairs from becoming a flock by accident.
-      attachmentOffset = boid.pos - seedCenter;
+      let captureOffset = boid.pos - seedCenter;
+      let captureDistance = length(captureOffset);
+      attachmentOffset = select(vec2<f32>(params.springLength, 0.0), captureOffset * (params.springLength / max(captureDistance, 0.0001)), captureDistance > 0.0001);
       isAttached = true;
       strainFrames = 0u;
     }
