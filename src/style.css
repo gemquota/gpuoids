@@ -330,3 +330,37 @@ body {
   background-color: var(--control-hover);
   color: var(--text);
 }
+
+
+/* On-device benchmark controls */
+.benchmark-button {
+  width: 100%;
+  min-height: 34px;
+  margin: 2px 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--control);
+  color: var(--text);
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+}
+.benchmark-button:hover:not(:disabled) {
+  background: var(--control-hover);
+}
+.benchmark-button:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+.benchmark-results {
+  max-height: 180px;
+  overflow: auto;
+  margin: 0 0 8px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.28);
+  color: var(--text-muted);
+  font: 11px/1.5 ui-monospace, SFMono-Regular, Consolas, monospace;
+  white-space: pre-wrap;
+}
