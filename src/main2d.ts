@@ -30,6 +30,9 @@ export const createSim = async (
     renderStride: "u32",
     neighborSampleLimit: "u32",
     springEnabled: "u32",
+    springLength: "f32",
+    springStretchiness: "f32",
+    springConnections: "u32",
   });
   const { params } = compute;
   params.set("behaviorMode", 0);
@@ -40,6 +43,9 @@ export const createSim = async (
   params.set("dotRadius", 0.85);
   params.set("renderStride", 1);
   params.set("springEnabled", 0);
+  params.set("springLength", 0.35);
+  params.set("springStretchiness", 0.65);
+  params.set("springConnections", 4);
 
   const abort = new AbortController();
   const view = createCamera2D(canvas, abort.signal);
@@ -169,6 +175,11 @@ export const createSim = async (
     },
     setPredator: (enabled: boolean) => params.set("mousePredator", enabled ? 1 : 0),
     setSpringBonds: (enabled: boolean) => params.set("springEnabled", enabled ? 1 : 0),
+    setSpringSettings: (length: number, stretchiness: number, connections: number) => {
+      params.set("springLength", length);
+      params.set("springStretchiness", stretchiness);
+      params.set("springConnections", connections);
+    },
     setBehavior: (mode: number, strength: number, flow: number, pulse: number) => {
       params.set("behaviorMode", mode);
       params.set("behaviorStrength", strength);
