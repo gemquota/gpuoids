@@ -8,7 +8,7 @@
 // One packed rgba8 colour per pixel, rows from the bottom of the screen up.
 // Cleared to 0 each frame, which the display draws as the background.
 @binding(7) @group(0) var<storage, read_write> raster : array<atomic<u32>>;
-@binding(8) @group(0) var<storage, read> flockAttachmentsIn : array<vec4<f32>>;
+@binding(8) @group(0) var<storage, read> flockAttachmentsIn : array<vec2<u32>>;
 @binding(9) @group(0) var<storage, read_write> flockAttachmentsOut : array<vec4<f32>>;
 
 // Neighbour rows staged once per group, as (pos, vel)
@@ -27,7 +27,7 @@ fn addNeighbour(pos: vec2<f32>, otherPos: vec2<f32>, otherVel: vec2<f32>, otherI
   let diff = pos - otherPos;
   let distSq = dot(diff, diff);
   if (distSq < params.visualRangeSq && distSq > 0.0) {
-    if (params.springEnabled > 0u && flockAttachmentsIn[otherIndex].z > 0.5) {
+    if (params.springEnabled > 0u && otherIndex < params.numBoids && flockAttachmentsIn[otherIndex].y != 0u) {
       *attachedCenter += otherPos;
       *attachedVelocity += otherVel;
       *attachedCount += 1u;
@@ -241,14 +241,15 @@ fn main(@builtin(workgroup_id) GroupID : vec3<u32>, @builtin(local_invocation_in
   mergedBehaviours(&boid, localID, firstCell, lastCell, &attachedCenter, &attachedVelocity, &attachedCount, &closestAttachedDistSq, &seedCenter, &neighbourCount);
 
   if (params.springEnabled > 0u) {
-    var attachment = flockAttachmentsIn[boidIndex];
-    let wasAttached = attachment.z > 0.5;
+    let packedAttachment = flockAttachmentsIn[boidIndex];
+    var attachmentOffset = unpack2x16float(packedAttachment.x);
+    let wasAttached = packedAttachment.y != 0u;
     if (attachedCount > 0u) {
       let invAttached = 1.0 / f32(attachedCount);
       attachedCenter *= invAttached;
       attachedVelocity *= invAttached;
       if (wasAttached) {
-        let target = attachedCenter + attachment.xy;
+        let target = attachedCenter + attachmentOffset;
         let delta = target - boid.pos;
         let distance = length(delta);
         if (distance > 0.0001) {
@@ -259,16 +260,16 @@ fn main(@builtin(workgroup_id) GroupID : vec3<u32>, @builtin(local_invocation_in
       } else if (closestAttachedDistSq <= params.minDistanceSq * 2.25) {
         // Capture the local shape offset at first contact. The anchor is the
         // nearby attached cohort, never one arbitrarily selected boid.
-        attachment = vec4<f32>(boid.pos - attachedCenter, 1.0, 0.0);
+        attachmentOffset = boid.pos - attachedCenter;
       }
     } else if (!wasAttached && neighbourCount >= 3u) {
       // Bootstrap an established local school. Requiring several neighbours
       // prevents isolated pairs from becoming a flock by accident.
-      attachment = vec4<f32>(boid.pos - seedCenter, 1.0, 0.0);
+      attachmentOffset = boid.pos - seedCenter;
     }
-    flockAttachmentsOut[boidIndex] = attachment;
+    flockAttachmentsOut[boidIndex] = vec2<u32>(pack2x16float(attachmentOffset), select(0u, 1u, wasAttached || attachedCount > 0u && closestAttachedDistSq <= params.minDistanceSq * 2.25 || neighbourCount >= 3u));
   } else {
-    flockAttachmentsOut[boidIndex] = vec4<f32>(0.0);
+    flockAttachmentsOut[boidIndex] = vec2<u32>(0u);
   }
   limitSpeed(&boid);
   keepInBounds(&boid);
