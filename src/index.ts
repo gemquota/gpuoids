@@ -8,6 +8,7 @@ type Sim = {
   setNumBoids: (count: number) => void;
   setPredator: (enabled: boolean) => void;
   setSpringBonds?: (enabled: boolean) => void;
+  setSpringSettings?: (length: number, stretchiness: number, connections: number) => void;
   setBehavior?: (mode: number, strength: number, flow: number, pulse: number) => void;
   dispose: () => void;
 };
@@ -146,6 +147,7 @@ ui.on.viewChanged = startSim;
 ui.on.numBoidsChanged = (count) => sim?.setNumBoids(count);
 ui.on.predatorChanged = (enabled) => sim?.setPredator(enabled);
 ui.on.springBondsChanged = (enabled) => sim?.setSpringBonds?.(enabled);
+ui.on.springSettingsChanged = (length, stretchiness, connections) => sim?.setSpringSettings?.(length, stretchiness, connections);
 ui.on.behaviorChanged = (mode, strength, flow, pulse) => sim?.setBehavior?.(mode, strength, flow, pulse);
 ui.on.benchmarkRequested = () => void runBenchmark();
 
