@@ -8,8 +8,9 @@
 // One packed rgba8 colour per pixel, rows from the bottom of the screen up.
 // Cleared to 0 each frame, which the display draws as the background.
 @binding(7) @group(0) var<storage, read_write> raster : array<atomic<u32>>;
-@binding(8) @group(0) var<storage, read> flockAttachmentsIn : array<vec2<u32>>;
-@binding(9) @group(0) var<storage, read_write> flockAttachmentsOut : array<vec2<u32>>;
+// Both topology generations share one storage binding. This keeps the compute
+// pipeline within WebGPU's portable eight-storage-buffer limit.
+@binding(8) @group(0) var<storage, read_write> flockAttachments : array<vec2<u32>>;
 
 // Neighbour rows staged once per group, as (pos, vel)
 var<workgroup> tile : array<vec4<f32>, tileSize>;
@@ -31,7 +32,7 @@ fn addNeighbour(pos: vec2<f32>, otherPos: vec2<f32>, otherVel: vec2<f32>, otherI
   let diff = pos - otherPos;
   let distSq = dot(diff, diff);
   if (distSq < params.visualRangeSq && distSq > 0.0) {
-    if (params.springEnabled > 0u && *attachedCount < params.springConnections && otherIndex < params.numBoids && flockAttachmentsIn[otherIndex].y != 0u) {
+    if (params.springEnabled > 0u && *attachedCount < params.springConnections && otherIndex < params.numBoids && flockAttachments[params.attachmentReadOffset + otherIndex].y != 0u) {
       *attachedCenter += otherPos;
       *attachedVelocity += otherVel;
       *attachedCount += 1u;
@@ -301,7 +302,7 @@ fn main(@builtin(workgroup_id) GroupID : vec3<u32>, @builtin(local_invocation_in
     }
     if (index < params.numBoids) {
       let attachmentState = select(0u, 1u, isAttached) | (strainFrames << 1u);
-      flockAttachmentsOut[boidIndex] = vec2<u32>(pack2x16float(attachmentOffset), attachmentState);
+      flockAttachments[params.attachmentWriteOffset + boidIndex] = vec2<u32>(pack2x16float(attachmentOffset), attachmentState);
     }
   } else {
     if (index < params.numBoids) {
