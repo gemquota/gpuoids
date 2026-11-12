@@ -30,6 +30,10 @@ jobs:
           ref: baseline
           path: baseline
 
+      - uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
       - uses: actions/setup-node@v4
         with:
           node-version: 24
