@@ -90,7 +90,7 @@ export const createBoidCompute = async <Name extends string>(
         device,
         `rearrangeBoids${label}`,
         `${rearrangeBoids}\n${include}`,
-        ["params", "grid", "gridOffsets", "sortedIndices"],
+        ["params", "grid", "gridOffsets", "gridCursors", "sortedIndices"],
       ),
       ComputeShader.create(device, `boids${label}`, `${kernels.boids}\n${include}`, [
         "params",
@@ -189,7 +189,8 @@ export const createBoidCompute = async <Name extends string>(
       ];
       gridBuffers = {
         // Each boid's cell and its rank in that cell
-        grid: createStorageBuffer(device, numBoids * 8),
+        grid: createStorageBuffer(device, numBoids * 4),
+        gridCursors: createStorageBuffer(device, gridTotalCells * 4),
         sortedIndices: createStorageBuffer(device, numBoids * 4),
         // Cell counts, which the prefix sum turns into offsets
         gridOffsetsIn: createStorageBuffer(device, gridTotalCells * 4),
@@ -221,6 +222,7 @@ export const createBoidCompute = async <Name extends string>(
       params.set("dt", deltaTime);
       params.update();
 
+      encoder.clearBuffer(gridBuffers.gridCursors);
       const pass = encoder.beginComputePass();
       prefixSum.dispatch(pass, blocks);
       // Sort boid indices by cell
