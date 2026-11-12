@@ -409,3 +409,20 @@ body {
   margin: 0;
   accent-color: var(--accent);
 }
+
+
+.spring-settings {
+  margin: -1px 0 9px;
+  padding: 1px 8px 7px;
+  border-left: 2px solid var(--accent);
+  transition: opacity 0.15s;
+}
+.spring-settings--inactive {
+  opacity: 0.42;
+}
+.spring-help {
+  margin: 5px 0 0;
+  color: var(--text-faint);
+  font-size: 10px;
+  line-height: 1.35;
+}
