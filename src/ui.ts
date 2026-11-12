@@ -29,6 +29,7 @@ export const createUI = () => {
   let is3D = false;
   let frames = 0;
   let fpsTimer = 0;
+  let benchmarkRunning = false;
 
   const handlers = {
     numBoidsChanged: (_count: number) => {},
@@ -59,7 +60,7 @@ export const createUI = () => {
     hint.textContent = is3D
       ? "Drag to look around\nWASD + Q/E while dragging to fly\nHold Shift to fly faster"
       : "Drag to pan · Pinch to zoom";
-    benchmarkButton.disabled = is3D || benchmarkButton.disabled;
+    benchmarkButton.disabled = is3D || benchmarkRunning;
   };
 
   view2D.onclick = () => {
@@ -101,8 +102,9 @@ export const createUI = () => {
     },
 
     setBenchmarkRunning: (running: boolean) => {
-      benchmarkButton.disabled = running || is3D;
+      benchmarkRunning = running;
       benchmarkButton.textContent = running ? "Benchmark running…" : "Run GPU benchmark";
+      refresh();
     },
 
     setBenchmarkResults: (report: string) => {
