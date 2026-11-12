@@ -55,11 +55,28 @@ export class ComputeShader {
     bindings: readonly string[],
   ) {
     const module = device.createShaderModule({ label, code });
+    const compilation = await module.getCompilationInfo();
+    const errors = compilation.messages.filter((message) => message.type === "error");
+    if (errors.length > 0) {
+      const details = errors.map((message) => {
+        const location = message.lineNum > 0
+          ? `line ${message.lineNum}, column ${message.linePos}`
+          : "shader";
+        return `[${location}] ${message.message}`;
+      }).join("\\n");
+      throw new Error(`${label} WGSL compilation failed:\\n${details}`);
+    }
+
+    await device.pushErrorScope("validation");
     const pipeline = await device.createComputePipelineAsync({
       label,
       layout: "auto",
       compute: { module },
     });
+    const validationError = await device.popErrorScope();
+    if (validationError) {
+      throw new Error(`${label} pipeline validation failed: ${validationError.message}`);
+    }
     return new ComputeShader(device, pipeline, bindings);
   }
 
