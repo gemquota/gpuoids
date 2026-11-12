@@ -26,7 +26,7 @@ fn addNeighbour(pos: vec2<f32>, otherPos: vec2<f32>, otherVel: vec2<f32>, otherI
   let diff = pos - otherPos;
   let distSq = dot(diff, diff);
   if (distSq < params.visualRangeSq && distSq > 0.0) {
-    if (distSq < params.minDistanceSq * 2.25 && distSq < *closestDistSq) {
+    if (params.springEnabled > 0u && distSq < params.minDistanceSq * 2.25 && distSq < *closestDistSq) {
       *closestDistSq = distSq;
       *closestIndex = otherIndex;
     }
@@ -217,12 +217,12 @@ fn main(@builtin(workgroup_id) GroupID : vec3<u32>, @builtin(local_invocation_in
   mergedBehaviours(&boid, localID, firstCell, lastCell, &contactPartner);
   if (params.springEnabled > 0u) {
     let currentPartner = atomicLoad(&springPartners[boidIndex]);
-    if (currentPartner != 0xffffffffu) {
-      let partner = loadBoid(currentPartner);
+    if (currentPartner != 0u) {
+      let partner = loadBoid(currentPartner - 1u);
       let delta = partner.pos - boid.pos;
       let distance = length(delta);
       if (distance > 0.9) {
-        atomicStore(&springPartners[boidIndex], 0xffffffffu);
+        atomicStore(&springPartners[boidIndex], 0u);
       } else if (distance > 0.0001) {
         let direction = delta / distance;
         let stretch = distance - 0.24;
@@ -230,7 +230,7 @@ fn main(@builtin(workgroup_id) GroupID : vec3<u32>, @builtin(local_invocation_in
         boid.vel += direction * (stretch * 5.0 - relativeSpeed * 1.4) * params.dt;
       }
     } else if (contactPartner != 0xffffffffu) {
-      atomicCompareExchangeWeak(&springPartners[boidIndex], 0xffffffffu, contactPartner);
+      atomicCompareExchangeWeak(&springPartners[boidIndex], 0u, contactPartner + 1u);
     }
   }
   limitSpeed(&boid);
