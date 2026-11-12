@@ -54,7 +54,7 @@ export const createSim = async (
   let pendingNumBoids = 0;
   let quad: QuadMesh | null = null;
   let rasterBuffer: GPUBuffer | null = null;
-  let springPartners: GPUBuffer | null = null;
+  let flockAttachments: GPUBuffer | null = null;
   let rasterMaterial: NodeMaterial | null = null;
   let rasterWidth = 0;
   let rasterHeight = 0;
@@ -92,7 +92,7 @@ export const createSim = async (
     );
     if (quad) quad.material = rasterMaterial;
     else quad = new QuadMesh(rasterMaterial);
-    if (springPartners) compute.setViewBuffers({ raster: rasterBuffer, springPartners });
+    if (flockAttachments) compute.setViewBuffers({ raster: rasterBuffer, flockAttachments });
   };
 
   const setup = () => {
@@ -106,9 +106,9 @@ export const createSim = async (
     const yBound = worldHalfHeight - edgeMargin;
     const gridDimX = (Math.floor((xBound * 2) / visualRange) + 30) * 2;
     const gridDimY = Math.floor((yBound * 2) / visualRange) + 30;
-    springPartners?.destroy();
-    springPartners = createStorageBuffer(device, numBoids * 16);
-    compute.setViewBuffers({ raster: rasterBuffer!, springPartners });
+    flockAttachments?.destroy();
+    flockAttachments = createStorageBuffer(device, numBoids * 16);
+    compute.setViewBuffers({ raster: rasterBuffer!, flockAttachments });
     compute.setup(numBoids, gridDimX * gridDimY, { xBound, yBound, gridDimX, gridDimY });
     updateRasterDensity();
   };
@@ -170,7 +170,7 @@ export const createSim = async (
       abort.abort();
       compute.dispose();
       rasterBuffer?.destroy();
-      springPartners?.destroy();
+      flockAttachments?.destroy();
       rasterMaterial?.dispose();
     },
   };
