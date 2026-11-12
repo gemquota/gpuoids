@@ -54,7 +54,8 @@ export const createSim = async (
   let pendingNumBoids = 0;
   let quad: QuadMesh | null = null;
   let rasterBuffer: GPUBuffer | null = null;
-  let springPartners: GPUBuffer | null = null;
+  let flockAttachmentsIn: GPUBuffer | null = null;
+  let flockAttachmentsOut: GPUBuffer | null = null;
   let rasterMaterial: NodeMaterial | null = null;
   let rasterWidth = 0;
   let rasterHeight = 0;
@@ -92,7 +93,7 @@ export const createSim = async (
     );
     if (quad) quad.material = rasterMaterial;
     else quad = new QuadMesh(rasterMaterial);
-    if (springPartners) compute.setViewBuffers({ raster: rasterBuffer, springPartners });
+    if (flockAttachmentsIn && flockAttachmentsOut) compute.setViewBuffers({ raster: rasterBuffer, flockAttachmentsIn, flockAttachmentsOut });
   };
 
   const setup = () => {
@@ -106,9 +107,11 @@ export const createSim = async (
     const yBound = worldHalfHeight - edgeMargin;
     const gridDimX = (Math.floor((xBound * 2) / visualRange) + 30) * 2;
     const gridDimY = Math.floor((yBound * 2) / visualRange) + 30;
-    springPartners?.destroy();
-    springPartners = createStorageBuffer(device, numBoids * 4);
-    compute.setViewBuffers({ raster: rasterBuffer!, springPartners });
+    flockAttachmentsIn?.destroy();
+    flockAttachmentsOut?.destroy();
+    flockAttachmentsIn = createStorageBuffer(device, numBoids * 8);
+    flockAttachmentsOut = createStorageBuffer(device, numBoids * 8);
+    compute.setViewBuffers({ raster: rasterBuffer!, flockAttachmentsIn, flockAttachmentsOut });
     compute.setup(numBoids, gridDimX * gridDimY, { xBound, yBound, gridDimX, gridDimY });
     updateRasterDensity();
   };
@@ -144,6 +147,12 @@ export const createSim = async (
     encoder.clearBuffer(rasterBuffer!);
     compute.encode(encoder, deltaTime);
     device.queue.submit([encoder.finish()]);
+    if (flockAttachmentsIn && flockAttachmentsOut) {
+      const previous = flockAttachmentsIn;
+      flockAttachmentsIn = flockAttachmentsOut;
+      flockAttachmentsOut = previous;
+      compute.setViewBuffers({ raster: rasterBuffer!, flockAttachmentsIn, flockAttachmentsOut });
+    }
     quad!.render(renderer);
     gpuBusy = true;
     void device.queue.onSubmittedWorkDone().then(
@@ -170,7 +179,8 @@ export const createSim = async (
       abort.abort();
       compute.dispose();
       rasterBuffer?.destroy();
-      springPartners?.destroy();
+      flockAttachmentsIn?.destroy();
+      flockAttachmentsOut?.destroy();
       rasterMaterial?.dispose();
     },
   };

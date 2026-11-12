@@ -11,7 +11,7 @@ export const kernels2d: BoidKernels = {
   include,
   generateBoids,
   boids: `${boids}\n${raster}`,
-  viewBindings: ["raster", "springPartners"],
+  viewBindings: ["raster", "flockAttachmentsIn", "flockAttachmentsOut"],
   boidBytes: 8,
   searchBlockSize: 128,
   tileSize: 256,
