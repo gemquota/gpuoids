@@ -40,10 +40,10 @@ const runBenchmark = async () => {
   const requestedLimit = Number(new URLSearchParams(window.location.search).get("benchmarkMax"));
   const benchmarkCap =
     Number.isFinite(requestedLimit) && requestedLimit >= 32
-      ? Math.min(requestedLimit, 1_048_576)
-      : 1_048_576;
+      ? Math.min(requestedLimit, 16_777_216)
+      : 16_777_216;
   const limit = Math.min(sim.boidLimit, benchmarkCap);
-  const counts = [32, 128, 512, 2_048, 8_192, 32_768, 131_072, 524_288, 1_048_576]
+  const counts = [32, 128, 512, 2_048, 8_192, 32_768, 131_072, 524_288, 1_048_576, 2_097_152, 4_194_304, 8_388_608, 16_777_216]
     .filter((count) => count <= limit);
   const results: Array<{
     count: number;
