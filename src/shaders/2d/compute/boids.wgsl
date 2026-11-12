@@ -242,7 +242,7 @@ fn main(@builtin(workgroup_id) GroupID : vec3<u32>, @builtin(local_invocation_in
   mergedBehaviours(&boid, localID, firstCell, lastCell, &attachedCenter, &attachedVelocity, &attachedCount, &closestAttachedDistSq, &seedCenter, &neighbourCount);
 
   if (params.springEnabled > 0u) {
-    let packedAttachment = flockAttachmentsIn[boidIndex];
+    let packedAttachment = flockAttachments[params.attachmentReadOffset + boidIndex];
     var attachmentOffset = unpack2x16float(packedAttachment.x);
     let wasAttached = (packedAttachment.y & 1u) != 0u;
     var isAttached = wasAttached;
@@ -306,7 +306,7 @@ fn main(@builtin(workgroup_id) GroupID : vec3<u32>, @builtin(local_invocation_in
     }
   } else {
     if (index < params.numBoids) {
-      flockAttachmentsOut[boidIndex] = vec2<u32>(0u);
+      flockAttachments[params.attachmentWriteOffset + boidIndex] = vec2<u32>(0u);
     }
   }
   limitSpeed(&boid);
