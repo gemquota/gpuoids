@@ -16,17 +16,19 @@ The baseline page uses the upstream simulation code with the same benchmark cont
 
 - Fixed 2D world dimensions that follow the viewport aspect ratio instead of changing with population.
 - Hard positional containment after integration, with damped wall reflection. Boids cannot drift outside the world or wrap around.
-- Circular 2D boid rasterisation with a tighter pixel bounding box.
+- Density-aware circular rendering: at high populations the renderer samples a representative subset of boids and shrinks their screen-space footprint, while every boid still participates in simulation.
+- 8-byte packed 2D boid state (two `f16x2` words) and a compact 32-bit-per-agent spatial grid, plus bounded neighbour sampling in dense cells, reducing storage and per-agent work enough to expose a 16,777,216-agent 2D capacity target on adapters with suitable limits.
+- GPU-side behaviour presets: classic, tight schooling, vortex/milling, orbiting schools, dispersal/anti-flocking and travelling waves. Influence, directional drift and wave modulation are uniform updates, not per-agent CPU work.
 - Two-finger touch pinch zoom; one-finger drag pans. Mouse drag and wheel zoom remain supported.
 - On-device population sweep with FPS, average frame time, p95 frame time and post-sample GPU queue-drain measurements.
 
-The original GPU spatial-grid, prefix-sum, sorted-neighbour and compute-shader architecture is retained.
+The original GPU spatial-grid, prefix-sum, sorted-neighbour and compute-shader architecture is retained. The 2D state uses half-float packing, so positions and velocities have lower precision than the original 32-bit representation.
 
 ## Benchmarking
 
 Open both live builds on the **same device, browser, orientation and power mode**. Run the benchmark on the baseline first, then the improved build. Let the device cool between runs if it becomes warm.
 
-The benchmark performs a warm-up, then samples each population for 2.5 seconds. It increases population from 32 up to 1,048,576 and stops escalating when measured frame rate falls below 20 FPS or the post-sample GPU queue drain exceeds 750 ms.
+The benchmark performs a warm-up, then samples each population for 2.5 seconds. It increases population from 32 up to 16,777,216 and stops escalating when measured frame rate falls below 20 FPS or the post-sample GPU queue drain exceeds 750 ms. The 2D capacity is constrained by the adapter's storage-buffer and dispatch limits; a 16M allocation is not a promise of 16M at interactive frame rates.
 
 Reported values:
 
