@@ -29,7 +29,7 @@ fn rasterizeBoid(boid: Boid, index: u32) {
     for (var x = first.x; x <= last.x; x += 1) {
       let offset = vec2<f32>(f32(x) + 0.5, f32(y) + 0.5) - center;
       if (dot(offset, offset) <= radiusSq) {
-        raster[row + u32(x)] = colour;
+        atomicStore(&raster[row + u32(x)], colour);
       }
     }
   }
