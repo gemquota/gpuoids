@@ -28,17 +28,11 @@ fn storeBoid(index: u32, boid: Boid) {
   boidsOut[index * 2u + 1u] = pack2x16float(boid.vel);
 }
 
-fn addNeighbour(pos: vec2<f32>, otherPos: vec2<f32>, otherVel: vec2<f32>, otherIndex: u32, center: ptr<function, vec2<f32>>, close: ptr<function, vec2<f32>>, avgVel: ptr<function, vec2<f32>>, neighbours: ptr<function, u32>, closestIndex: ptr<function, u32>, closestDistSq: ptr<function, f32>, attachedCenter: ptr<function, vec2<f32>>, attachedVelocity: ptr<function, vec2<f32>>, attachedCount: ptr<function, u32>, closestAttachedDistSq: ptr<function, f32>) {
+fn addNeighbour(pos: vec2<f32>, otherPos: vec2<f32>, otherVel: vec2<f32>, otherIndex: u32, selfIndex: u32, center: ptr<function, vec2<f32>>, close: ptr<function, vec2<f32>>, avgVel: ptr<function, vec2<f32>>, neighbours: ptr<function, u32>, closestIndex: ptr<function, u32>, closestDistSq: ptr<function, f32>, attachedCenter: ptr<function, vec2<f32>>, attachedVelocity: ptr<function, vec2<f32>>, attachedCount: ptr<function, u32>, closestAttachedDistSq: ptr<function, f32>) {
   let diff = pos - otherPos;
   let distSq = dot(diff, diff);
   if (distSq < params.visualRangeSq && distSq > 0.0) {
-    if (params.springEnabled > 0u && *attachedCount < params.springConnections && otherIndex < params.numBoids && flockAttachments[params.attachmentReadOffset + otherIndex].y != 0u) {
-      *attachedCenter += otherPos;
-      *attachedVelocity += otherVel;
-      *attachedCount += 1u;
-      *closestAttachedDistSq = min(*closestAttachedDistSq, distSq);
-    }
-    if (params.springEnabled > 0u && distSq < params.minDistanceSq * 2.25 && distSq < *closestDistSq) {
+    if (params.springEnabled > 0u && otherIndex < selfIndex && distSq < params.minDistanceSq * (1.0 + f32(params.springConnections) * 0.5) && distSq < *closestDistSq) {
       *closestDistSq = distSq;
       *closestIndex = otherIndex;
     }
@@ -51,7 +45,7 @@ fn addNeighbour(pos: vec2<f32>, otherPos: vec2<f32>, otherVel: vec2<f32>, otherI
   }
 }
 
-fn mergedBehaviours(boid: ptr<function, Boid>, localID: u32, firstCell: u32, lastCell: u32, attachedCenter: ptr<function, vec2<f32>>, attachedVelocity: ptr<function, vec2<f32>>, attachedCount: ptr<function, u32>, closestAttachedDistSq: ptr<function, f32>, seedCenter: ptr<function, vec2<f32>>, neighbourCount: ptr<function, u32>) {
+fn mergedBehaviours(boid: ptr<function, Boid>, localID: u32, firstCell: u32, lastCell: u32, parentCandidate: ptr<function, u32>, attachedCenter: ptr<function, vec2<f32>>, attachedVelocity: ptr<function, vec2<f32>>, attachedCount: ptr<function, u32>, closestAttachedDistSq: ptr<function, f32>, seedCenter: ptr<function, vec2<f32>>, neighbourCount: ptr<function, u32>) {
   var center : vec2<f32> = vec2<f32>();
   var close : vec2<f32> = vec2<f32>();
   var avgVel : vec2<f32> = vec2<f32>();
@@ -98,10 +92,10 @@ fn mergedBehaviours(boid: ptr<function, Boid>, localID: u32, firstCell: u32, las
         let o1 = tile[j + 1u];
         let o2 = tile[j + 2u];
         let o3 = tile[j + 3u];
-        addNeighbour(pos, o0.xy, o0.zw, sortedIndices[tileStart + j], &center, &close, &avgVel, &neighbours, &closestCandidate, &closestDistSq, attachedCenter, attachedVelocity, attachedCount, closestAttachedDistSq);
-        addNeighbour(pos, o1.xy, o1.zw, sortedIndices[tileStart + j + 1u], &center, &close, &avgVel, &neighbours, &closestCandidate, &closestDistSq, attachedCenter, attachedVelocity, attachedCount, closestAttachedDistSq);
-        addNeighbour(pos, o2.xy, o2.zw, sortedIndices[tileStart + j + 2u], &center, &close, &avgVel, &neighbours, &closestCandidate, &closestDistSq, attachedCenter, attachedVelocity, attachedCount, closestAttachedDistSq);
-        addNeighbour(pos, o3.xy, o3.zw, sortedIndices[tileStart + j + 3u], &center, &close, &avgVel, &neighbours, &closestCandidate, &closestDistSq, attachedCenter, attachedVelocity, attachedCount, closestAttachedDistSq);
+        addNeighbour(pos, o0.xy, o0.zw, sortedIndices[tileStart + j], sortedIndices[min(first + localID, last)], &center, &close, &avgVel, &neighbours, &closestCandidate, &closestDistSq, attachedCenter, attachedVelocity, attachedCount, closestAttachedDistSq);
+        addNeighbour(pos, o1.xy, o1.zw, sortedIndices[min(first + localID, last)], &center, &close, &avgVel, &neighbours, &closestCandidate, &closestDistSq, attachedCenter, attachedVelocity, attachedCount, closestAttachedDistSq);
+        addNeighbour(pos, o2.xy, o2.zw, sortedIndices[tileStart + j + 2u], sortedIndices[min(first + localID, last)], &center, &close, &avgVel, &neighbours, &closestCandidate, &closestDistSq, attachedCenter, attachedVelocity, attachedCount, closestAttachedDistSq);
+        addNeighbour(pos, o3.xy, o3.zw, sortedIndices[tileStart + j + 3u], sortedIndices[min(first + localID, last)], &center, &close, &avgVel, &neighbours, &closestCandidate, &closestDistSq, attachedCenter, attachedVelocity, attachedCount, closestAttachedDistSq);
       }
       // Up to 3 are left. Reading all 3 slots and testing the ones past the
       // end as the boid itself, which is never a neighbour, avoids a branch
@@ -112,9 +106,9 @@ fn mergedBehaviours(boid: ptr<function, Boid>, localID: u32, firstCell: u32, las
       let o0 = tile[j0];
       let o1 = tile[j1];
       let o2 = tile[j2];
-      addNeighbour(pos, select(pos, o0.xy, j < tileEnd), o0.zw, select(0xffffffffu, sortedIndices[tileStart + j0], j < tileEnd), &center, &close, &avgVel, &neighbours, &closestCandidate, &closestDistSq, attachedCenter, attachedVelocity, attachedCount, closestAttachedDistSq);
-      addNeighbour(pos, select(pos, o1.xy, j + 1u < tileEnd), o1.zw, select(0xffffffffu, sortedIndices[tileStart + j1], j + 1u < tileEnd), &center, &close, &avgVel, &neighbours, &closestCandidate, &closestDistSq, attachedCenter, attachedVelocity, attachedCount, closestAttachedDistSq);
-      addNeighbour(pos, select(pos, o2.xy, j + 2u < tileEnd), o2.zw, select(0xffffffffu, sortedIndices[tileStart + j2], j + 2u < tileEnd), &center, &close, &avgVel, &neighbours, &closestCandidate, &closestDistSq, attachedCenter, attachedVelocity, attachedCount, closestAttachedDistSq);
+      addNeighbour(pos, select(pos, o0.xy, j < tileEnd), o0.zw, select(0xffffffffu, sortedIndices[tileStart + j0], j < tileEnd), sortedIndices[min(first + localID, last)], &center, &close, &avgVel, &neighbours, &closestCandidate, &closestDistSq, attachedCenter, attachedVelocity, attachedCount, closestAttachedDistSq);
+      addNeighbour(pos, select(pos, o1.xy, j + 1u < tileEnd), o1.zw, select(0xffffffffu, sortedIndices[tileStart + j1], j + 1u < tileEnd), sortedIndices[min(first + localID, last)], &center, &close, &avgVel, &neighbours, &closestCandidate, &closestDistSq, attachedCenter, attachedVelocity, attachedCount, closestAttachedDistSq);
+      addNeighbour(pos, select(pos, o2.xy, j + 2u < tileEnd), o2.zw, select(0xffffffffu, sortedIndices[tileStart + j2], j + 2u < tileEnd), sortedIndices[min(first + localID, last)], &center, &close, &avgVel, &neighbours, &closestCandidate, &closestDistSq, attachedCenter, attachedVelocity, attachedCount, closestAttachedDistSq);
     } else {
       // Dense cells are sampled instead of making every boid inspect thousands
       // of neighbours. Sparse groups still use the exact shared-tile path above.
@@ -127,13 +121,14 @@ fn mergedBehaviours(boid: ptr<function, Boid>, localID: u32, firstCell: u32, las
         if (j >= end) { j = start; }
         for (var sample = 0u; sample < sampleCount && j < end; sample += 1u) {
           let other = packBoid(loadBoid(sortedIndices[j]));
-          addNeighbour(pos, other.xy, other.zw, sortedIndices[j], &center, &close, &avgVel, &neighbours, &closestCandidate, &closestDistSq, attachedCenter, attachedVelocity, attachedCount, closestAttachedDistSq);
+          addNeighbour(pos, other.xy, other.zw, sortedIndices[j], sortedIndices[min(first + localID, last)], &center, &close, &avgVel, &neighbours, &closestCandidate, &closestDistSq, attachedCenter, attachedVelocity, attachedCount, closestAttachedDistSq);
           j += sampleStride;
         }
       }
     }
   }
 
+  *parentCandidate = closestCandidate;
   *neighbourCount = neighbours;
   if (neighbours > 0u) {
     let invNeighbours = 1.0 / f32(neighbours);
@@ -233,83 +228,68 @@ fn main(@builtin(workgroup_id) GroupID : vec3<u32>, @builtin(local_invocation_in
   let firstCell = getGridID(loadBoid(sortedIndices[first]).pos);
   let lastCell = getGridID(loadBoid(sortedIndices[last]).pos);
 
+  var parentCandidate = 0xffffffffu;
   var attachedCenter = vec2<f32>(0.0);
   var attachedVelocity = vec2<f32>(0.0);
   var attachedCount = 0u;
   var closestAttachedDistSq = 1e30;
   var seedCenter = vec2<f32>(0.0);
   var neighbourCount = 0u;
-  mergedBehaviours(&boid, localID, firstCell, lastCell, &attachedCenter, &attachedVelocity, &attachedCount, &closestAttachedDistSq, &seedCenter, &neighbourCount);
+  mergedBehaviours(&boid, localID, firstCell, lastCell, &parentCandidate, &attachedCenter, &attachedVelocity, &attachedCount, &closestAttachedDistSq, &seedCenter, &neighbourCount);
 
   if (params.springEnabled > 0u) {
     let packedAttachment = flockAttachments[params.attachmentReadOffset + boidIndex];
-    var attachmentOffset = unpack2x16float(packedAttachment.x);
+    var parentIndex = packedAttachment.x;
     let wasAttached = (packedAttachment.y & 1u) != 0u;
     var isAttached = wasAttached;
-    // The upper seven bits are a short strain timer. A connection must remain
-    // overstretched (or lose all local support) before it releases.
     var strainFrames = (packedAttachment.y >> 1u) & 0x7fu;
-    if (attachedCount > 0u) {
-      let invAttached = 1.0 / f32(attachedCount);
-      attachedCenter *= invAttached;
-      attachedVelocity *= invAttached;
-      if (wasAttached) {
-        let offsetLength = length(attachmentOffset);
-        let restOffset = select(vec2<f32>(params.springLength, 0.0), attachmentOffset * (params.springLength / max(offsetLength, 0.0001)), offsetLength > 0.0001);
-        let anchorPosition = attachedCenter + restOffset;
-        let delta = anchorPosition - boid.pos;
-        let distance = length(delta);
-        // Render the elastic link as well as applying its force.
-        rasterizeSpring(boid, anchorPosition, boidIndex);
-        let breakDistance = max(params.springLength * 2.5, 0.2);
-        if (distance > breakDistance) {
-          strainFrames = min(strainFrames + 1u, 127u);
-        } else {
-          if (strainFrames > 0u) { strainFrames -= 1u; }
-        }
-        if (strainFrames >= elasticReleaseFrames) {
-          isAttached = false;
-          strainFrames = 0u;
-        } else if (distance > 0.0001) {
-          let direction = delta / distance;
-          let relativeSpeed = dot(attachedVelocity - boid.vel, direction);
-          let stiffness = mix(42.0, 7.0, clamp(params.springStretchiness, 0.0, 1.0));
-          let springAcceleration = clamp(distance * stiffness - relativeSpeed * elasticDamping, -elasticMaxAcceleration, elasticMaxAcceleration);
-          boid.vel += direction * springAcceleration * params.dt;
-        }
-      } else if (closestAttachedDistSq <= params.minDistanceSq * 2.25) {
-        // Capture the local shape offset at first contact. The anchor is the
-        // nearby attached cohort, never one arbitrarily selected boid.
-        let captureOffset = boid.pos - attachedCenter;
-        let captureDistance = length(captureOffset);
-        attachmentOffset = select(vec2<f32>(params.springLength, 0.0), captureOffset * (params.springLength / max(captureDistance, 0.0001)), captureDistance > 0.0001);
-        isAttached = true;
+    var restLength = unpack2x16float(packedAttachment.y >> 16u).x;
+
+    if (wasAttached && parentIndex < params.numBoids) {
+      let parent = loadBoid(parentIndex);
+      let delta = parent.pos - boid.pos;
+      let distance = length(delta);
+      rasterizeSpring(boid, parent.pos, boidIndex);
+
+      let breakDistance = max(restLength * 3.0, 0.2);
+      if (distance > breakDistance) {
+        strainFrames = min(strainFrames + 1u, 127u);
+      } else if (strainFrames > 0u) {
+        strainFrames -= 1u;
+      }
+
+      if (strainFrames >= elasticReleaseFrames) {
+        isAttached = false;
+        parentIndex = 0xffffffffu;
         strainFrames = 0u;
+      } else if (distance > 0.0001) {
+        let direction = delta / distance;
+        let relativeSpeed = dot(parent.vel - boid.vel, direction);
+        let stiffness = mix(42.0, 7.0, clamp(params.springStretchiness, 0.0, 1.0));
+        let extension = distance - restLength;
+        let springAcceleration = clamp(extension * stiffness - relativeSpeed * elasticDamping, -elasticMaxAcceleration, elasticMaxAcceleration);
+        boid.vel += direction * springAcceleration * params.dt;
       }
     } else if (wasAttached) {
-      // A disconnected boid gets a grace period to find another local patch.
-      strainFrames = min(strainFrames + 1u, 127u);
-      if (strainFrames >= 18u) {
-        isAttached = false;
-        strainFrames = 0u;
-      }
-    } else if (neighbourCount >= 2u) {
-      // Bootstrap a small local patch from at least three organisms. A higher
-      // threshold leaves low-population simulations with no visible springs.
-      let captureOffset = boid.pos - seedCenter;
-      let captureDistance = length(captureOffset);
-      attachmentOffset = select(vec2<f32>(params.springLength, 0.0), captureOffset * (params.springLength / max(captureDistance, 0.0001)), captureDistance > 0.0001);
+      isAttached = false;
+      parentIndex = 0xffffffffu;
+      strainFrames = 0u;
+    }
+
+    if (!isAttached && parentCandidate != 0xffffffffu) {
+      parentIndex = parentCandidate;
+      restLength = max(params.springLength, 0.02);
       isAttached = true;
       strainFrames = 0u;
     }
+
     if (index < params.numBoids) {
-      let attachmentState = select(0u, 1u, isAttached) | (strainFrames << 1u);
-      flockAttachments[params.attachmentWriteOffset + boidIndex] = vec2<u32>(pack2x16float(attachmentOffset), attachmentState);
+      let restBits = pack2x16float(vec2<f32>(restLength, 0.0)) & 0xffffu;
+      let attachmentState = (restBits << 16u) | (strainFrames << 1u) | select(0u, 1u, isAttached);
+      flockAttachments[params.attachmentWriteOffset + boidIndex] = vec2<u32>(parentIndex, attachmentState);
     }
-  } else {
-    if (index < params.numBoids) {
-      flockAttachments[params.attachmentWriteOffset + boidIndex] = vec2<u32>(0u);
-    }
+  } else if (index < params.numBoids) {
+    flockAttachments[params.attachmentWriteOffset + boidIndex] = vec2<u32>(0xffffffffu, 0u);
   }
   limitSpeed(&boid);
   keepInBounds(&boid);
