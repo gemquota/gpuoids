@@ -109,8 +109,8 @@ export const createSim = async (
     const gridDimY = Math.floor((yBound * 2) / visualRange) + 30;
     flockAttachmentsIn?.destroy();
     flockAttachmentsOut?.destroy();
-    flockAttachmentsIn = createStorageBuffer(device, numBoids * 16);
-    flockAttachmentsOut = createStorageBuffer(device, numBoids * 16);
+    flockAttachmentsIn = createStorageBuffer(device, numBoids * 8);
+    flockAttachmentsOut = createStorageBuffer(device, numBoids * 8);
     compute.setViewBuffers({ raster: rasterBuffer!, flockAttachmentsIn, flockAttachmentsOut });
     compute.setup(numBoids, gridDimX * gridDimY, { xBound, yBound, gridDimX, gridDimY });
     updateRasterDensity();
