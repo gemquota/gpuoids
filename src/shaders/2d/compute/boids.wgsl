@@ -15,9 +15,9 @@
 // Neighbour rows staged once per group, as (pos, vel)
 var<workgroup> tile : array<vec4<f32>, tileSize>;
 
-const elasticDamping: f32 = 1.4;
+const elasticDamping: f32 = 2.2;
 const elasticReleaseFrames: u32 = 18u;
-const elasticMaxAcceleration: f32 = 8.0;
+const elasticMaxAcceleration: f32 = 20.0;
 
 fn loadBoid(index: u32) -> Boid {
   return unpackBoid(boidsIn[index * 2u], boidsIn[index * 2u + 1u]);
@@ -259,6 +259,8 @@ fn main(@builtin(workgroup_id) GroupID : vec3<u32>, @builtin(local_invocation_in
         let anchorPosition = attachedCenter + restOffset;
         let delta = anchorPosition - boid.pos;
         let distance = length(delta);
+        // Render the elastic link as well as applying its force.
+        rasterizeSpring(boid, anchorPosition, boidIndex);
         let breakDistance = max(params.springLength * 2.5, 0.2);
         if (distance > breakDistance) {
           strainFrames = min(strainFrames + 1u, 127u);
@@ -271,7 +273,7 @@ fn main(@builtin(workgroup_id) GroupID : vec3<u32>, @builtin(local_invocation_in
         } else if (distance > 0.0001) {
           let direction = delta / distance;
           let relativeSpeed = dot(attachedVelocity - boid.vel, direction);
-          let stiffness = mix(18.0, 1.5, clamp(params.springStretchiness, 0.0, 1.0));
+          let stiffness = mix(42.0, 7.0, clamp(params.springStretchiness, 0.0, 1.0));
           let springAcceleration = clamp(distance * stiffness - relativeSpeed * elasticDamping, -elasticMaxAcceleration, elasticMaxAcceleration);
           boid.vel += direction * springAcceleration * params.dt;
         }
