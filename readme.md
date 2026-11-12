@@ -1,11 +1,49 @@
-# 2D/3D Boids Flocking Simulation (three.js/WebGPU)
+# gpuoids
 
-**See it here: https://jtsorlinis.github.io/BoidsWebGPU/**
+A mobile-oriented, performance-focused evolution of [BoidsWebGPU](https://github.com/jtsorlinis/BoidsWebGPU), retaining its Three.js + WebGPU compute architecture and 2D/3D simulation modes.
 
----
+## Live builds
 
-Boids simulation made with three.js and WebGPU, running on a compute shader this allows the simulation of millions of boids. It's a port of [BoidsUnity](https://github.com/jtsorlinis/BoidsUnity)'s GPU mode.
+- **Improved build:** https://gemquota.github.io/gpuoids/
+- **Benchmark baseline:** https://gemquota.github.io/gpuoids/baseline/
+- **Upstream project:** https://github.com/jtsorlinis/BoidsWebGPU
 
-The simulation uses a uniform spatial grid as an acceleration structure to determine nearest neighbours, as brute force method would cap out at around 50k entities even on GPU.
+The baseline page uses the upstream simulation code with the same benchmark controls added. The improved page includes the changes listed below. Both are built and deployed together so they can be compared on the same device and browser.
 
-Method used is inspired by this presentation: https://on-demand.gputechconf.com/gtc/2014/presentations/S4117-fast-fixed-radius-nearest-neighbor-gpu.pdf
+## Changes in gpuoids
+
+- Fixed 2D world dimensions that follow the viewport aspect ratio instead of changing with population.
+- Hard positional containment after integration, with damped wall reflection. Boids cannot drift outside the world or wrap around.
+- Circular 2D boid rasterisation with a tighter pixel bounding box.
+- Two-finger touch pinch zoom; one-finger drag pans. Mouse drag and wheel zoom remain supported.
+- On-device population sweep with FPS, average frame time, p95 frame time and post-sample GPU queue-drain measurements.
+
+The original GPU spatial-grid, prefix-sum, sorted-neighbour and compute-shader architecture is retained.
+
+## Benchmarking
+
+Open both live builds on the **same device, browser, orientation and power mode**. Run the benchmark on the baseline first, then the improved build. Let the device cool between runs if it becomes warm.
+
+The benchmark performs a warm-up, then samples each population for 2.5 seconds. It increases population from 32 up to 1,048,576 and stops escalating when measured frame rate falls below 20 FPS or the post-sample GPU queue drain exceeds 750 ms.
+
+Reported values:
+
+- **FPS:** observed animation-loop frame rate during the sample window.
+- **Average ms / p95 ms:** average and 95th-percentile frame intervals.
+- **Queue drain:** time for submitted GPU work to finish after the sample window.
+
+FPS includes browser/compositor scheduling and is not a pure compute-shader timing. Queue-drain time is a coarse backlog indicator, not per-frame GPU timestamp profiling. Results are device-specific; do not compare runs made under different thermal or power conditions.
+
+## Development
+
+Requirements: Node.js 24+ and a browser with WebGPU support.
+
+```sh
+npm ci
+npm run dev
+npm run build
+```
+
+## Upstream
+
+The original project and its authorship remain credited to [jtsorlinis/BoidsWebGPU](https://github.com/jtsorlinis/BoidsWebGPU). This repository is an independent derivative; it does not modify the upstream project.

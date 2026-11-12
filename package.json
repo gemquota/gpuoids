@@ -1,5 +1,5 @@
 {
-  "name": "boidswebgpu",
+  "name": "gpuoids",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "deploy": "tsc && vite build --base=/BoidsWebGPU/ && gh-pages -d dist"
+    "deploy": "tsc && vite build --base=/gpuoids/ && gh-pages -d dist"
   },
   "devDependencies": {
     "@types/three": "^0.186.0",
