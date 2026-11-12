@@ -21,6 +21,12 @@ export const createUI = () => {
   const predatorLabel = getElement("predator-label");
   const predatorToggle = getElement<HTMLInputElement>("predator-toggle");
   const springToggle = getElement<HTMLInputElement>("spring-toggle");
+  const springLength = getElement<HTMLInputElement>("spring-length");
+  const springStretchiness = getElement<HTMLInputElement>("spring-stretchiness");
+  const springConnections = getElement<HTMLInputElement>("spring-connections");
+  const springLengthValue = getElement("spring-length-value");
+  const springStretchinessValue = getElement("spring-stretchiness-value");
+  const springConnectionsValue = getElement("spring-connections-value");
   const hint = getElement("hint");
   const benchmarkButton = getElement<HTMLButtonElement>("benchmark-button");
   const benchmarkResults = getElement<HTMLPreElement>("benchmark-results");
@@ -46,12 +52,27 @@ export const createUI = () => {
     viewChanged: (_is3D: boolean) => {},
     predatorChanged: (_enabled: boolean) => {},
     springBondsChanged: (_enabled: boolean) => {},
+    springSettingsChanged: (_length: number, _stretchiness: number, _connections: number) => {},
     behaviorChanged: (_mode: number, _strength: number, _flow: number, _pulse: number) => {},
     benchmarkRequested: () => {},
   };
 
   const countFor = (exponent: number) =>
     exponent >= Math.log2(maxBoids) - 0.0001 ? maxBoids : Math.round(Math.pow(2, exponent));
+
+  const getSpringSettings = () => ({
+    length: springLength.valueAsNumber,
+    stretchiness: springStretchiness.valueAsNumber,
+    connections: springConnections.valueAsNumber,
+  });
+
+  const emitSpringSettings = () => {
+    const settings = getSpringSettings();
+    springLengthValue.textContent = settings.length.toFixed(2);
+    springStretchinessValue.textContent = settings.stretchiness.toFixed(2);
+    springConnectionsValue.textContent = settings.connections.toFixed(0);
+    handlers.springSettingsChanged(settings.length, settings.stretchiness, settings.connections);
+  };
 
   const emitBehavior = () => {
     const strength = behaviorStrength.valueAsNumber;
@@ -96,6 +117,9 @@ export const createUI = () => {
     springToggle.blur();
     handlers.springBondsChanged(springToggle.checked);
   };
+  springLength.oninput = emitSpringSettings;
+  springStretchiness.oninput = emitSpringSettings;
+  springConnections.oninput = emitSpringSettings;
   predatorToggle.onchange = () => {
     predatorToggle.blur();
     handlers.predatorChanged(predatorToggle.checked);
@@ -121,6 +145,7 @@ export const createUI = () => {
   return {
     on: handlers,
     getNumBoids: () => numBoids,
+    getSpringSettings,
     setNumBoids: (count: number) => {
       numBoids = Math.max(minBoids, Math.min(Math.floor(count), maxBoids));
       slider.valueAsNumber = Math.log2(numBoids);
