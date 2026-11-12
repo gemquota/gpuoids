@@ -61,8 +61,6 @@ fn mergedBehaviours(boid: ptr<function, Boid>, localID: u32, firstCell: u32, las
   *closestAttachedDistSq = 1e30;
   *seedCenter = vec2<f32>(0.0);
   *neighbourCount = 0u;
-  *seedCenter = vec2<f32>(0.0);
-  *neighbourCount = 0u;
   let cell = getGridID(pos);
 
   // Loop around own cell. The group's boids are sorted by cell, so each row
@@ -132,11 +130,9 @@ fn mergedBehaviours(boid: ptr<function, Boid>, localID: u32, firstCell: u32, las
   }
 
   *neighbourCount = neighbours;
-  *neighbourCount = neighbours;
   if (neighbours > 0u) {
     let invNeighbours = 1.0 / f32(neighbours);
     center *= invNeighbours;
-    *seedCenter = center;
     *seedCenter = center;
     avgVel *= invNeighbours;
 
@@ -244,6 +240,7 @@ fn main(@builtin(workgroup_id) GroupID : vec3<u32>, @builtin(local_invocation_in
     let packedAttachment = flockAttachmentsIn[boidIndex];
     var attachmentOffset = unpack2x16float(packedAttachment.x);
     let wasAttached = packedAttachment.y != 0u;
+    var isAttached = wasAttached;
     if (attachedCount > 0u) {
       let invAttached = 1.0 / f32(attachedCount);
       attachedCenter *= invAttached;
@@ -261,15 +258,21 @@ fn main(@builtin(workgroup_id) GroupID : vec3<u32>, @builtin(local_invocation_in
         // Capture the local shape offset at first contact. The anchor is the
         // nearby attached cohort, never one arbitrarily selected boid.
         attachmentOffset = boid.pos - attachedCenter;
+        isAttached = true;
       }
     } else if (!wasAttached && neighbourCount >= 3u) {
       // Bootstrap an established local school. Requiring several neighbours
       // prevents isolated pairs from becoming a flock by accident.
       attachmentOffset = boid.pos - seedCenter;
+      isAttached = true;
     }
-    flockAttachmentsOut[boidIndex] = vec2<u32>(pack2x16float(attachmentOffset), select(0u, 1u, wasAttached || attachedCount > 0u && closestAttachedDistSq <= params.minDistanceSq * 2.25 || neighbourCount >= 3u));
+    if (index < params.numBoids) {
+      flockAttachmentsOut[boidIndex] = vec2<u32>(pack2x16float(attachmentOffset), select(0u, 1u, isAttached));
+    }
   } else {
-    flockAttachmentsOut[boidIndex] = vec2<u32>(0u);
+    if (index < params.numBoids) {
+      flockAttachmentsOut[boidIndex] = vec2<u32>(0u);
+    }
   }
   limitSpeed(&boid);
   keepInBounds(&boid);
