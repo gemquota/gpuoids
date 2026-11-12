@@ -26,7 +26,13 @@ fn addNeighbour(pos: vec2<f32>, otherPos: vec2<f32>, otherVel: vec2<f32>, otherI
   let diff = pos - otherPos;
   let distSq = dot(diff, diff);
   if (distSq < params.visualRangeSq && distSq > 0.0) {
-    if (params.springEnabled > 0u && flockAttachments[otherIndex].z > 0.5) {\n      *attachedCenter += otherPos;\n      *attachedVelocity += otherVel;\n      *attachedCount += 1u;\n      *closestAttachedDistSq = min(*closestAttachedDistSq, distSq);\n    }\n    if (params.springEnabled > 0u && distSq < params.minDistanceSq * 2.25 && distSq < *closestDistSq) {
+    if (params.springEnabled > 0u && flockAttachments[otherIndex].z > 0.5) {
+      *attachedCenter += otherPos;
+      *attachedVelocity += otherVel;
+      *attachedCount += 1u;
+      *closestAttachedDistSq = min(*closestAttachedDistSq, distSq);
+    }
+    if (params.springEnabled > 0u && distSq < params.minDistanceSq * 2.25 && distSq < *closestDistSq) {
       *closestDistSq = distSq;
       *closestIndex = otherIndex;
     }
@@ -47,7 +53,13 @@ fn mergedBehaviours(boid: ptr<function, Boid>, localID: u32, firstCell: u32, las
   var closestCandidate: u32 = 0xffffffffu;
   var closestDistSq: f32 = 1e30;
 
-  let pos = (*boid).pos;\n  *attachedCenter = vec2<f32>(0.0);\n  *attachedVelocity = vec2<f32>(0.0);\n  *attachedCount = 0u;\n  *closestAttachedDistSq = 1e30;\n  *seedCenter = vec2<f32>(0.0);\n  *neighbourCount = 0u;
+  let pos = (*boid).pos;
+  *attachedCenter = vec2<f32>(0.0);
+  *attachedVelocity = vec2<f32>(0.0);
+  *attachedCount = 0u;
+  *closestAttachedDistSq = 1e30;
+  *seedCenter = vec2<f32>(0.0);
+  *neighbourCount = 0u;
   let cell = getGridID(pos);
 
   // Loop around own cell. The group's boids are sorted by cell, so each row
@@ -116,9 +128,11 @@ fn mergedBehaviours(boid: ptr<function, Boid>, localID: u32, firstCell: u32, las
     }
   }
 
-  *neighbourCount = neighbours;\n  if (neighbours > 0u) {
+  *neighbourCount = neighbours;
+  if (neighbours > 0u) {
     let invNeighbours = 1.0 / f32(neighbours);
-    center *= invNeighbours;\n    *seedCenter = center;
+    center *= invNeighbours;
+    *seedCenter = center;
     avgVel *= invNeighbours;
 
     var cohesionScale = 1.0;
@@ -217,7 +231,7 @@ fn main(@builtin(workgroup_id) GroupID : vec3<u32>, @builtin(local_invocation_in
   var attachedVelocity = vec2<f32>(0.0);
   var attachedCount = 0u;
   var closestAttachedDistSq = 1e30;
-  mergedBehaviours(&boid, localID, firstCell, lastCell, &attachedCenter, &attachedVelocity, &attachedCount, &closestAttachedDistSq);
+  mergedBehaviours(&boid, localID, firstCell, lastCell, &attachedCenter, &attachedVelocity, &attachedCount, &closestAttachedDistSq, &seedCenter, &neighbourCount);
 
   if (params.springEnabled > 0u) {
     var attachment = flockAttachments[boidIndex];
