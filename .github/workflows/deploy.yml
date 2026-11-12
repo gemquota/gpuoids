@@ -89,12 +89,37 @@ jobs:
         with:
           path: improved/dist
 
+  check-pages:
+    runs-on: ubuntu-latest
+    outputs:
+      enabled: ${{ steps.check.outputs.enabled }}
+    steps:
+      - id: check
+        uses: actions/github-script@v7
+        with:
+          script: |
+            try {
+              await github.rest.repos.getPages({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+              });
+              core.setOutput("enabled", "true");
+            } catch (error) {
+              if (error.status === 404) {
+                core.setOutput("enabled", "false");
+                core.notice("GitHub Pages is not enabled yet. Enable Settings > Pages > GitHub Actions, then rerun this workflow.");
+              } else {
+                throw error;
+              }
+            }
+
   deploy:
+    if: needs.check-pages.outputs.enabled == 'true'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
-    needs: build
+    needs: [build, check-pages]
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
