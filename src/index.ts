@@ -37,7 +37,12 @@ const runBenchmark = async () => {
   ui.setBenchmarkRunning(true);
   ui.setBenchmarkResults("Warming up GPU…");
   const originalCount = ui.getNumBoids();
-  const limit = Math.min(sim.boidLimit, 1_048_576);
+  const requestedLimit = Number(new URLSearchParams(window.location.search).get("benchmarkMax"));
+  const benchmarkCap =
+    Number.isFinite(requestedLimit) && requestedLimit >= 32
+      ? Math.min(requestedLimit, 1_048_576)
+      : 1_048_576;
+  const limit = Math.min(sim.boidLimit, benchmarkCap);
   const counts = [32, 128, 512, 2_048, 8_192, 32_768, 131_072, 524_288, 1_048_576]
     .filter((count) => count <= limit);
   const results: Array<{
