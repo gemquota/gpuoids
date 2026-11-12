@@ -14,6 +14,12 @@
 // Neighbour rows staged once per group, as (pos, vel)
 var<workgroup> tile : array<vec4<f32>, tileSize>;
 
+const elasticStiffness: f32 = 5.0;
+const elasticDamping: f32 = 1.4;
+const elasticBreakDistance: f32 = 0.9;
+const elasticReleaseFrames: u32 = 18u;
+const elasticMaxAcceleration: f32 = 8.0;
+
 fn loadBoid(index: u32) -> Boid {
   return unpackBoid(boidsIn[index * 2u], boidsIn[index * 2u + 1u]);
 }
@@ -252,18 +258,18 @@ fn main(@builtin(workgroup_id) GroupID : vec3<u32>, @builtin(local_invocation_in
         let target = attachedCenter + attachmentOffset;
         let delta = target - boid.pos;
         let distance = length(delta);
-        if (distance > 0.9) {
+        if (distance > elasticBreakDistance) {
           strainFrames = min(strainFrames + 1u, 127u);
         } else {
           if (strainFrames > 0u) { strainFrames -= 1u; }
         }
-        if (strainFrames >= 18u) {
+        if (strainFrames >= elasticReleaseFrames) {
           isAttached = false;
           strainFrames = 0u;
         } else if (distance > 0.0001) {
           let direction = delta / distance;
           let relativeSpeed = dot(attachedVelocity - boid.vel, direction);
-          let springAcceleration = clamp(distance * 5.0 - relativeSpeed * 1.4, -8.0, 8.0);
+          let springAcceleration = clamp(distance * elasticStiffness - relativeSpeed * elasticDamping, -elasticMaxAcceleration, elasticMaxAcceleration);
           boid.vel += direction * springAcceleration * params.dt;
         }
       } else if (closestAttachedDistSq <= params.minDistanceSq * 2.25) {
