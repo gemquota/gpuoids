@@ -1,5 +1,5 @@
 @binding(0) @group(0) var<uniform> params : Params;
-@binding(1) @group(0) var<storage, read_write> boidsOut : array<u32>;
+@binding(1) @group(0) var<storage, read_write> boids : array<u32>;
 @binding(2) @group(0) var<storage, read_write> gridOffsetsIn : array<atomic<u32>>;
 @binding(3) @group(0) var<storage, read_write> grid : array<u32>;
 
@@ -15,8 +15,8 @@ fn main(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>) {
     vec2<f32>(rand_pcg(base, -params.xBound, params.xBound), rand_pcg(base + 1u, -params.yBound, params.yBound)),
     vec2<f32>(rand_pcg(base + 2u, -params.maxSpeed, params.maxSpeed), rand_pcg(base + 3u, -params.maxSpeed, params.maxSpeed)),
   );
-  boidsOut[index * 2u] = pack2x16float(boid.pos);
-  boidsOut[index * 2u + 1u] = pack2x16float(boid.vel);
+  boids[index * 2u] = pack2x16float(boid.pos);
+  boids[index * 2u + 1u] = pack2x16float(boid.vel);
 
   let cell = getGridID(boid.pos);
   grid[index] = cell;
