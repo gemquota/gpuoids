@@ -34,3 +34,24 @@ fn rasterizeBoid(boid: Boid, index: u32) {
     }
   }
 }
+
+
+ // Thin cyan spring segment, transformed with the same camera as the boids.
+fn rasterizeSpring(boid: Boid, anchor: vec2<f32>, index: u32) {
+  if (params.springEnabled == 0u || index % params.renderStride != 0u) { return; }
+  let rasterSize = vec2<f32>(f32(params.renderWidth), f32(params.renderHeight));
+  let screenScale = rasterSize / (params.viewportHalfSize * 2.0);
+  let a = boid.pos * screenScale + rasterSize * 0.5 - params.cameraPos * screenScale;
+  let b = anchor * screenScale + rasterSize * 0.5 - params.cameraPos * screenScale;
+  let delta = b - a;
+  let steps = min(u32(ceil(max(abs(delta.x), abs(delta.y)))), 256u);
+  let colour = pack4x8unorm(vec4<f32>(0.08, 0.82, 1.0, 1.0));
+  if (steps == 0u) { return; }
+  for (var step = 0u; step <= steps; step += 1u) {
+    let point = a + delta * (f32(step) / f32(steps));
+    let pixel = vec2<i32>(floor(point));
+    if (pixel.x >= 0 && pixel.y >= 0 && pixel.x < i32(params.renderWidth) && pixel.y < i32(params.renderHeight)) {
+      atomicStore(&raster[u32(pixel.y) * params.renderWidth + u32(pixel.x)], colour);
+    }
+  }
+}
