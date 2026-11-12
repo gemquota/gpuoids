@@ -1,6 +1,6 @@
 @binding(0) @group(0) var<uniform> params : Params;
-@binding(1) @group(0) var<storage, read> boidsIn : array<vec4<f32>>;
-@binding(2) @group(0) var<storage, read_write> boidsOut : array<vec4<f32>>;
+@binding(1) @group(0) var<storage, read> boidsIn : array<u32>;
+@binding(2) @group(0) var<storage, read_write> boidsOut : array<u32>;
 @binding(3) @group(0) var<storage, read> sortedIndices : array<u32>;
 @binding(4) @group(0) var<storage, read> gridOffsets : array<u32>;
 @binding(5) @group(0) var<storage, read_write> gridOffsetsIn : array<atomic<u32>>;
@@ -50,7 +50,7 @@ fn mergedBehaviours(boid: ptr<function, Boid>, localID: u32, firstCell: u32, las
       for (var s = 0u; s < stagePasses; s += 1u) {
         let k = localID + s * searchBlockSize;
         if (k < tileCount) {
-          tile[k] = boidsIn[sortedIndices[tileStart + k]];
+          tile[k] = packBoid(loadBoid(sortedIndices[tileStart + k]));
         }
       }
     }
@@ -84,17 +84,17 @@ fn mergedBehaviours(boid: ptr<function, Boid>, localID: u32, firstCell: u32, las
     } else {
       var j = start;
       for (; j + 3u < end; j += 4u) {
-        let o0 = boidsIn[sortedIndices[j]];
-        let o1 = boidsIn[sortedIndices[j + 1u]];
-        let o2 = boidsIn[sortedIndices[j + 2u]];
-        let o3 = boidsIn[sortedIndices[j + 3u]];
+        let o0 = packBoid(loadBoid(sortedIndices[j]));
+        let o1 = packBoid(loadBoid(sortedIndices[j + 1u]));
+        let o2 = packBoid(loadBoid(sortedIndices[j + 2u]));
+        let o3 = packBoid(loadBoid(sortedIndices[j + 3u]));
         addNeighbour(pos, o0.xy, o0.zw, &center, &close, &avgVel, &neighbours);
         addNeighbour(pos, o1.xy, o1.zw, &center, &close, &avgVel, &neighbours);
         addNeighbour(pos, o2.xy, o2.zw, &center, &close, &avgVel, &neighbours);
         addNeighbour(pos, o3.xy, o3.zw, &center, &close, &avgVel, &neighbours);
       }
       for (; j < end; j += 1u) {
-        let other = boidsIn[sortedIndices[j]];
+        let other = packBoid(loadBoid(sortedIndices[j]));
         addNeighbour(pos, other.xy, other.zw, &center, &close, &avgVel, &neighbours);
       }
     }
@@ -104,11 +104,57 @@ fn mergedBehaviours(boid: ptr<function, Boid>, localID: u32, firstCell: u32, las
     let invNeighbours = 1.0 / f32(neighbours);
     center *= invNeighbours;
     avgVel *= invNeighbours;
-    (*boid).vel += (center - (*boid).pos) * (params.cohesionFactor * params.dt);
-    (*boid).vel += (avgVel - (*boid).vel) * (params.alignmentFactor * params.dt);
+
+    var cohesionScale = 1.0;
+    var alignmentScale = 1.0;
+    var separationScale = 1.0;
+    switch params.behaviorMode {
+      case 1u: { // tight schooling
+        cohesionScale = 1.2;
+        alignmentScale = 1.8;
+      }
+      case 2u: { // local vortex / milling
+        cohesionScale = 0.45;
+        alignmentScale = 0.65;
+        separationScale = 1.15;
+      }
+      case 3u: { // orbiting schools
+        cohesionScale = 0.65;
+        alignmentScale = 0.8;
+      }
+      case 4u: { // dispersal / anti-flocking
+        cohesionScale = -0.25;
+        alignmentScale = 0.2;
+        separationScale = 2.35;
+      }
+      case 5u: { // travelling wave / ribbon motion
+        cohesionScale = 0.8;
+        alignmentScale = 1.15;
+      }
+      default: {}
+    }
+
+    let pulse = 1.0 + sin(params.simTime * 1.7 + (*boid).pos.x * 1.6) * params.modulation * 0.35;
+    let strength = params.behaviorStrength;
+    (*boid).vel += (center - (*boid).pos) * (params.cohesionFactor * cohesionScale * pulse * strength * params.dt);
+    (*boid).vel += (avgVel - (*boid).vel) * (params.alignmentFactor * alignmentScale * pulse * strength * params.dt);
+    (*boid).vel += close * (params.separationFactor * separationScale * strength * params.dt);
+
+    let radial = center - (*boid).pos;
+    let tangent = vec2<f32>(-radial.y, radial.x);
+    if (params.behaviorMode == 2u && dot(tangent, tangent) > 0.000001) {
+      (*boid).vel += normalize(tangent) * (strength * 1.8 * params.dt);
+    }
+    if (params.behaviorMode == 3u && dot(tangent, tangent) > 0.000001) {
+      (*boid).vel += (normalize(tangent) * 2.1 + normalize(radial) * 0.35) * (strength * params.dt);
+    }
+    if (params.behaviorMode == 5u) {
+      let wave = sin(params.simTime * 1.3 + (*boid).pos.x * 2.2 + (*boid).pos.y * 1.4);
+      (*boid).vel += vec2<f32>(cos((*boid).pos.y * 1.4), sin((*boid).pos.x * 2.2)) * (wave * params.modulation * strength * params.dt);
+    }
   }
 
-  (*boid).vel += close * (params.separationFactor * params.dt);
+  (*boid).vel += params.flowBias * (params.dt * params.behaviorStrength * 0.9);
 }
 
 fn limitSpeed(boid: ptr<function, Boid>) {
@@ -145,9 +191,9 @@ fn main(@builtin(workgroup_id) GroupID : vec3<u32>, @builtin(local_invocation_in
   // Threads past the last boid still take part in the staging, as copies of the last boid
   let last = min(first + searchBlockSize, params.numBoids) - 1u;
   let index = first + localID;
-  var boid = unpackBoid(boidsIn[sortedIndices[min(index, last)]]);
-  let firstCell = getGridID(boidsIn[sortedIndices[first]].xy);
-  let lastCell = getGridID(boidsIn[sortedIndices[last]].xy);
+  var boid = loadBoid(sortedIndices[min(index, last)]);
+  let firstCell = getGridID(loadBoid(sortedIndices[first]).pos);
+  let lastCell = getGridID(loadBoid(sortedIndices[last]).pos);
 
   mergedBehaviours(&boid, localID, firstCell, lastCell);
   limitSpeed(&boid);
@@ -173,13 +219,13 @@ fn main(@builtin(workgroup_id) GroupID : vec3<u32>, @builtin(local_invocation_in
 
   // Written in cell order, so next frame's neighbour reads stay close together
   if (index < params.numBoids) {
-    boidsOut[index] = packBoid(boid);
+    storeBoid(index, boid);
 
     // Bin the boid into next frame's grid, saving a separate update grid pass
     let cell = getGridID(boid.pos);
     grid[index] = vec2<u32>(cell, atomicAdd(&gridOffsetsIn[cell], 1u));
 
     // Drawing here saves a separate pass over every boid
-    rasterizeBoid(boid);
+    rasterizeBoid(boid, index);
   }
 }
