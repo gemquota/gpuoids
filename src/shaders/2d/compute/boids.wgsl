@@ -256,8 +256,8 @@ fn main(@builtin(workgroup_id) GroupID : vec3<u32>, @builtin(local_invocation_in
       if (wasAttached) {
         let offsetLength = length(attachmentOffset);
         let restOffset = select(vec2<f32>(params.springLength, 0.0), attachmentOffset * (params.springLength / max(offsetLength, 0.0001)), offsetLength > 0.0001);
-        let target = attachedCenter + restOffset;
-        let delta = target - boid.pos;
+        let anchorPosition = attachedCenter + restOffset;
+        let delta = anchorPosition - boid.pos;
         let distance = length(delta);
         let breakDistance = max(params.springLength * 2.5, 0.2);
         if (distance > breakDistance) {
