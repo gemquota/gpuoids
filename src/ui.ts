@@ -21,21 +21,23 @@ export const createUI = () => {
   const predatorLabel = getElement("predator-label");
   const predatorToggle = getElement<HTMLInputElement>("predator-toggle");
   const hint = getElement("hint");
+  const benchmarkButton = getElement<HTMLButtonElement>("benchmark-button");
+  const benchmarkResults = getElement<HTMLPreElement>("benchmark-results");
 
   let numBoids = initialBoids;
   let maxBoids = minBoids;
   let is3D = false;
   let frames = 0;
   let fpsTimer = 0;
+  let benchmarkRunning = false;
 
   const handlers = {
     numBoidsChanged: (_count: number) => {},
     viewChanged: (_is3D: boolean) => {},
     predatorChanged: (_enabled: boolean) => {},
+    benchmarkRequested: () => {},
   };
 
-  // Slider position is log2 of the boid count, so each octave gets the same travel.
-  // Snaps the far end to the exact limit, pow loses precision up there.
   const countFor = (exponent: number) =>
     exponent >= Math.log2(maxBoids) - 0.0001
       ? maxBoids
@@ -44,7 +46,6 @@ export const createUI = () => {
   const refresh = () => {
     const maxExponent = Math.log2(maxBoids);
     slider.max = maxExponent.toString();
-    // Leave the handle alone while it already shows this count (e.g. mid drag)
     if (countFor(slider.valueAsNumber) !== numBoids) {
       slider.valueAsNumber = Math.min(Math.log2(numBoids), maxExponent);
     }
@@ -58,7 +59,8 @@ export const createUI = () => {
     predatorLabel.textContent = is3D ? "You are predator" : "Mouse is predator";
     hint.textContent = is3D
       ? "Drag to look around\nWASD + Q/E while dragging to fly\nHold Shift to fly faster"
-      : "Drag to pan · Scroll to zoom";
+      : "Drag to pan · Pinch to zoom";
+    benchmarkButton.disabled = is3D || benchmarkRunning;
   };
 
   view2D.onclick = () => {
@@ -69,7 +71,6 @@ export const createUI = () => {
   };
 
   slider.oninput = () => {
-    // The slider moves smoothly but only whole boid counts restart the sim
     const count = countFor(slider.valueAsNumber);
     if (count !== numBoids) {
       numBoids = count;
@@ -77,7 +78,6 @@ export const createUI = () => {
     }
     refresh();
   };
-  // Keep arrow keys for flying rather than the slider
   slider.onpointerup = () => slider.blur();
 
   predatorToggle.onchange = () => {
@@ -85,11 +85,32 @@ export const createUI = () => {
     handlers.predatorChanged(predatorToggle.checked);
   };
 
+  benchmarkButton.onclick = () => handlers.benchmarkRequested();
+
   minLabel.textContent = format(minBoids);
   refresh();
 
   return {
     on: handlers,
+    getNumBoids: () => numBoids,
+
+    setNumBoids: (count: number) => {
+      numBoids = Math.max(minBoids, Math.min(Math.floor(count), maxBoids));
+      slider.valueAsNumber = Math.log2(numBoids);
+      refresh();
+      handlers.numBoidsChanged(numBoids);
+    },
+
+    setBenchmarkRunning: (running: boolean) => {
+      benchmarkRunning = running;
+      benchmarkButton.textContent = running ? "Benchmark running…" : "Run GPU benchmark";
+      refresh();
+    },
+
+    setBenchmarkResults: (report: string) => {
+      benchmarkResults.hidden = !report;
+      benchmarkResults.textContent = report;
+    },
 
     setView: (view3D: boolean) => {
       is3D = view3D;
@@ -99,16 +120,15 @@ export const createUI = () => {
     },
 
     setLimit: (limit: number) => {
-      maxBoids = limit;
+      maxBoids = Math.max(minBoids, limit);
+      numBoids = Math.min(numBoids, maxBoids);
       refresh();
     },
 
     frame: (deltaTime: number) => {
       frames++;
       fpsTimer += deltaTime;
-      if (fpsTimer < fpsInterval) {
-        return;
-      }
+      if (fpsTimer < fpsInterval) return;
 
       const fps = Math.round(frames / fpsTimer);
       fpsLabel.textContent = fps.toString();
