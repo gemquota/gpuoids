@@ -12,6 +12,15 @@
 // Neighbour rows staged once per group, as (pos, vel)
 var<workgroup> tile : array<vec4<f32>, tileSize>;
 
+fn loadBoid(index: u32) -> Boid {
+  return unpackBoid(boidsIn[index * 2u], boidsIn[index * 2u + 1u]);
+}
+
+fn storeBoid(index: u32, boid: Boid) {
+  boidsOut[index * 2u] = pack2x16float(boid.pos);
+  boidsOut[index * 2u + 1u] = pack2x16float(boid.vel);
+}
+
 fn addNeighbour(pos: vec2<f32>, otherPos: vec2<f32>, otherVel: vec2<f32>, center: ptr<function, vec2<f32>>, close: ptr<function, vec2<f32>>, avgVel: ptr<function, vec2<f32>>, neighbours: ptr<function, u32>) {
   let diff = pos - otherPos;
   let distSq = dot(diff, diff);
