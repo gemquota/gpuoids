@@ -61,7 +61,7 @@ export const createBoidCompute = async <Name extends string>(
   );
   const boidLimit = Math.min(
     kernels.boidLimitPerGroup * maxBlocks,
-    Math.floor(maxBufferSize / kernels.boidBytes),
+    Math.floor(maxBufferSize / Math.max(kernels.boidBytes, kernels.viewBufferBytesPerBoid ?? 0)),
   );
 
   const params = new Params(device, { ...sharedParams, ...viewParams });
