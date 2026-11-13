@@ -29,7 +29,7 @@ fn storeBoid(index: u32, boid: Boid) {
   boidsOut[index * 2u + 1u] = pack2x16float(boid.vel);
 }
 
-fn addNeighbour(pos: vec2<f32>, otherPos: vec2<f32>, otherVel: vec2<f32>, otherIndex: u32, selfIndex: u32, candidateIndices: ptr<function, array<u32, 4>>, candidateDistances: ptr<function, array<f32, 4>>, center: ptr<function, vec2<f32>>, close: ptr<function, vec2<f32>>, avgVel: ptr<function, vec2<f32>>, neighbours: ptr<function, u32>, closestIndex: ptr<function, u32>, closestDistSq: ptr<function, f32>, attachedCenter: ptr<function, vec2<f32>>, attachedVelocity: ptr<function, vec2<f32>>, attachedCount: ptr<function, u32>, closestAttachedDistSq: ptr<function, f32>) {
+fn addNeighbour(pos: vec2<f32>, otherPos: vec2<f32>, otherVel: vec2<f32>, otherIndex: u32, selfIndex: u32, candidateIndices: ptr<function, array<u32, 4>>, candidateDistances: ptr<function, array<f32, 4>>, center: ptr<function, vec2<f32>>, close: ptr<function, vec2<f32>>, avgVel: ptr<function, vec2<f32>>, neighbours: ptr<function, u32>, attachedCenter: ptr<function, vec2<f32>>, attachedVelocity: ptr<function, vec2<f32>>, attachedCount: ptr<function, u32>, closestAttachedDistSq: ptr<function, f32>) {
   let diff = pos - otherPos;
   let distSq = dot(diff, diff);
   if (distSq < params.visualRangeSq && distSq > 0.0) {
@@ -63,7 +63,7 @@ fn addNeighbour(pos: vec2<f32>, otherPos: vec2<f32>, otherVel: vec2<f32>, otherI
   }
 }
 
-fn mergedBehaviours(boid: ptr<function, Boid>, localID: u32, selfIndex: u32, candidateIndices: ptr<function, array<u32, 4>>, candidateDistances: ptr<function, array<f32, 4>>, firstCell: u32, lastCell: u32, parentCandidate: ptr<function, u32>, attachedCenter: ptr<function, vec2<f32>>, attachedVelocity: ptr<function, vec2<f32>>, attachedCount: ptr<function, u32>, closestAttachedDistSq: ptr<function, f32>, seedCenter: ptr<function, vec2<f32>>, neighbourCount: ptr<function, u32>) {
+fn mergedBehaviours(boid: ptr<function, Boid>, localID: u32, selfIndex: u32, candidateIndices: ptr<function, array<u32, 4>>, candidateDistances: ptr<function, array<f32, 4>>, firstCell: u32, lastCell: u32, attachedCenter: ptr<function, vec2<f32>>, attachedVelocity: ptr<function, vec2<f32>>, attachedCount: ptr<function, u32>, closestAttachedDistSq: ptr<function, f32>, seedCenter: ptr<function, vec2<f32>>, neighbourCount: ptr<function, u32>) {
   var center : vec2<f32> = vec2<f32>();
   var close : vec2<f32> = vec2<f32>();
   var avgVel : vec2<f32> = vec2<f32>();
@@ -268,7 +268,7 @@ fn main(@builtin(workgroup_id) GroupID : vec3<u32>, @builtin(local_invocation_in
       var isAttached = wasAttached;
       var strainFrames = (packedAttachment.y >> 1u) & 0x7fu;
       var restLength = unpack2x16float(packedAttachment.y >> 16u).x;
-      if (wasAttached && parentIndex < params.numBoids) {
+      if (slot < connectionLimit && wasAttached && parentIndex < params.numBoids) {
         let parent = loadBoid(parentIndex);
         let delta = parent.pos - boid.pos;
         let distance = length(delta);
