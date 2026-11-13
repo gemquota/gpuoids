@@ -45,7 +45,7 @@ fn addNeighbour(pos: vec2<f32>, otherPos: vec2<f32>, otherVel: vec2<f32>, otherI
   }
 }
 
-fn mergedBehaviours(boid: ptr<function, Boid>, localID: u32, firstCell: u32, lastCell: u32, parentCandidate: ptr<function, u32>, attachedCenter: ptr<function, vec2<f32>>, attachedVelocity: ptr<function, vec2<f32>>, attachedCount: ptr<function, u32>, closestAttachedDistSq: ptr<function, f32>, seedCenter: ptr<function, vec2<f32>>, neighbourCount: ptr<function, u32>) {
+fn mergedBehaviours(boid: ptr<function, Boid>, localID: u32, selfIndex: u32, firstCell: u32, lastCell: u32, parentCandidate: ptr<function, u32>, attachedCenter: ptr<function, vec2<f32>>, attachedVelocity: ptr<function, vec2<f32>>, attachedCount: ptr<function, u32>, closestAttachedDistSq: ptr<function, f32>, seedCenter: ptr<function, vec2<f32>>, neighbourCount: ptr<function, u32>) {
   var center : vec2<f32> = vec2<f32>();
   var close : vec2<f32> = vec2<f32>();
   var avgVel : vec2<f32> = vec2<f32>();
@@ -92,10 +92,10 @@ fn mergedBehaviours(boid: ptr<function, Boid>, localID: u32, firstCell: u32, las
         let o1 = tile[j + 1u];
         let o2 = tile[j + 2u];
         let o3 = tile[j + 3u];
-        addNeighbour(pos, o0.xy, o0.zw, sortedIndices[tileStart + j], sortedIndices[min(first + localID, last)], &center, &close, &avgVel, &neighbours, &closestCandidate, &closestDistSq, attachedCenter, attachedVelocity, attachedCount, closestAttachedDistSq);
-        addNeighbour(pos, o1.xy, o1.zw, sortedIndices[tileStart + j + 1u], sortedIndices[min(first + localID, last)], &center, &close, &avgVel, &neighbours, &closestCandidate, &closestDistSq, attachedCenter, attachedVelocity, attachedCount, closestAttachedDistSq);
-        addNeighbour(pos, o2.xy, o2.zw, sortedIndices[tileStart + j + 2u], sortedIndices[min(first + localID, last)], &center, &close, &avgVel, &neighbours, &closestCandidate, &closestDistSq, attachedCenter, attachedVelocity, attachedCount, closestAttachedDistSq);
-        addNeighbour(pos, o3.xy, o3.zw, sortedIndices[tileStart + j + 3u], sortedIndices[min(first + localID, last)], &center, &close, &avgVel, &neighbours, &closestCandidate, &closestDistSq, attachedCenter, attachedVelocity, attachedCount, closestAttachedDistSq);
+        addNeighbour(pos, o0.xy, o0.zw, sortedIndices[tileStart + j], selfIndex, &center, &close, &avgVel, &neighbours, &closestCandidate, &closestDistSq, attachedCenter, attachedVelocity, attachedCount, closestAttachedDistSq);
+        addNeighbour(pos, o1.xy, o1.zw, sortedIndices[tileStart + j + 1u], selfIndex, &center, &close, &avgVel, &neighbours, &closestCandidate, &closestDistSq, attachedCenter, attachedVelocity, attachedCount, closestAttachedDistSq);
+        addNeighbour(pos, o2.xy, o2.zw, sortedIndices[tileStart + j + 2u], selfIndex, &center, &close, &avgVel, &neighbours, &closestCandidate, &closestDistSq, attachedCenter, attachedVelocity, attachedCount, closestAttachedDistSq);
+        addNeighbour(pos, o3.xy, o3.zw, sortedIndices[tileStart + j + 3u], selfIndex, &center, &close, &avgVel, &neighbours, &closestCandidate, &closestDistSq, attachedCenter, attachedVelocity, attachedCount, closestAttachedDistSq);
       }
       // Up to 3 are left. Reading all 3 slots and testing the ones past the
       // end as the boid itself, which is never a neighbour, avoids a branch
@@ -106,9 +106,9 @@ fn mergedBehaviours(boid: ptr<function, Boid>, localID: u32, firstCell: u32, las
       let o0 = tile[j0];
       let o1 = tile[j1];
       let o2 = tile[j2];
-      addNeighbour(pos, select(pos, o0.xy, j < tileEnd), o0.zw, select(0xffffffffu, sortedIndices[tileStart + j0], j < tileEnd), sortedIndices[min(first + localID, last)], &center, &close, &avgVel, &neighbours, &closestCandidate, &closestDistSq, attachedCenter, attachedVelocity, attachedCount, closestAttachedDistSq);
-      addNeighbour(pos, select(pos, o1.xy, j + 1u < tileEnd), o1.zw, select(0xffffffffu, sortedIndices[tileStart + j1], j + 1u < tileEnd), sortedIndices[min(first + localID, last)], &center, &close, &avgVel, &neighbours, &closestCandidate, &closestDistSq, attachedCenter, attachedVelocity, attachedCount, closestAttachedDistSq);
-      addNeighbour(pos, select(pos, o2.xy, j + 2u < tileEnd), o2.zw, select(0xffffffffu, sortedIndices[tileStart + j2], j + 2u < tileEnd), sortedIndices[min(first + localID, last)], &center, &close, &avgVel, &neighbours, &closestCandidate, &closestDistSq, attachedCenter, attachedVelocity, attachedCount, closestAttachedDistSq);
+      addNeighbour(pos, select(pos, o0.xy, j < tileEnd), o0.zw, select(0xffffffffu, sortedIndices[tileStart + j0], j < tileEnd), selfIndex, &center, &close, &avgVel, &neighbours, &closestCandidate, &closestDistSq, attachedCenter, attachedVelocity, attachedCount, closestAttachedDistSq);
+      addNeighbour(pos, select(pos, o1.xy, j + 1u < tileEnd), o1.zw, select(0xffffffffu, sortedIndices[tileStart + j1], j + 1u < tileEnd), selfIndex, &center, &close, &avgVel, &neighbours, &closestCandidate, &closestDistSq, attachedCenter, attachedVelocity, attachedCount, closestAttachedDistSq);
+      addNeighbour(pos, select(pos, o2.xy, j + 2u < tileEnd), o2.zw, select(0xffffffffu, sortedIndices[tileStart + j2], j + 2u < tileEnd), selfIndex, &center, &close, &avgVel, &neighbours, &closestCandidate, &closestDistSq, attachedCenter, attachedVelocity, attachedCount, closestAttachedDistSq);
     } else {
       // Dense cells are sampled instead of making every boid inspect thousands
       // of neighbours. Sparse groups still use the exact shared-tile path above.
@@ -121,7 +121,7 @@ fn mergedBehaviours(boid: ptr<function, Boid>, localID: u32, firstCell: u32, las
         if (j >= end) { j = start; }
         for (var sample = 0u; sample < sampleCount && j < end; sample += 1u) {
           let other = packBoid(loadBoid(sortedIndices[j]));
-          addNeighbour(pos, other.xy, other.zw, sortedIndices[j], sortedIndices[min(first + localID, last)], &center, &close, &avgVel, &neighbours, &closestCandidate, &closestDistSq, attachedCenter, attachedVelocity, attachedCount, closestAttachedDistSq);
+          addNeighbour(pos, other.xy, other.zw, sortedIndices[j], selfIndex, &center, &close, &avgVel, &neighbours, &closestCandidate, &closestDistSq, attachedCenter, attachedVelocity, attachedCount, closestAttachedDistSq);
           j += sampleStride;
         }
       }
@@ -235,7 +235,7 @@ fn main(@builtin(workgroup_id) GroupID : vec3<u32>, @builtin(local_invocation_in
   var closestAttachedDistSq = 1e30;
   var seedCenter = vec2<f32>(0.0);
   var neighbourCount = 0u;
-  mergedBehaviours(&boid, localID, firstCell, lastCell, &parentCandidate, &attachedCenter, &attachedVelocity, &attachedCount, &closestAttachedDistSq, &seedCenter, &neighbourCount);
+  mergedBehaviours(&boid, localID, boidIndex, firstCell, lastCell, &parentCandidate, &attachedCenter, &attachedVelocity, &attachedCount, &closestAttachedDistSq, &seedCenter, &neighbourCount);
 
   if (params.springEnabled > 0u) {
     let packedAttachment = flockAttachments[params.attachmentReadOffset + boidIndex];
