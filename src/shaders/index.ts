@@ -23,6 +23,8 @@ export type BoidKernels = {
   // Bindings the boids kernel takes after the shared ones, 2D's also draws into a raster
   viewBindings: readonly string[];
   boidBytes: number;
+  // Largest per-boid view-specific storage allocation, when a view needs one.
+  viewBufferBytesPerBoid?: number;
   // Neighbour search kernels, each group stages its neighbour rows into a shared tile
   searchBlockSize: number;
   tileSize: number;
