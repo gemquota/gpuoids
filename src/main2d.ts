@@ -45,9 +45,9 @@ export const createSim = async (
   params.set("dotRadius", 0.85);
   params.set("renderStride", 1);
   params.set("springEnabled", 0);
-  params.set("springLength", 0.35);
+  params.set("springLength", 0.08);
   params.set("springStretchiness", 0.65);
-  params.set("springConnections", 4);
+  params.set("springConnections", 2);
 
   const abort = new AbortController();
   const view = createCamera2D(canvas, abort.signal);
@@ -119,12 +119,12 @@ export const createSim = async (
     flockAttachments?.destroy();
     // Two generations in one allocation: one read half and one write half.
     // Clear both so the first spring-enabled frame never reads uninitialised memory.
-    flockAttachments = createStorageBuffer(device, numBoids * 16);
+    flockAttachments = createStorageBuffer(device, numBoids * 16 * 4);
     const clearEncoder = device.createCommandEncoder();
     clearEncoder.clearBuffer(flockAttachments);
     device.queue.submit([clearEncoder.finish()]);
     attachmentReadOffset = 0;
-    attachmentWriteOffset = numBoids;
+    attachmentWriteOffset = numBoids * 4;
     params.set("attachmentReadOffset", attachmentReadOffset);
     params.set("attachmentWriteOffset", attachmentWriteOffset);
     compute.setViewBuffers({ raster: rasterBuffer!, flockAttachments });
