@@ -325,22 +325,6 @@ fn main(@builtin(workgroup_id) GroupID : vec3<u32>, @builtin(local_invocation_in
         }
       }
     }
-    // Apply new bonds in the same frame they are captured.
-    for (var slot = 0u; slot < connectionLimit; slot += 1u) {
-      let parentIndex = retainedParents[slot];
-      if (parentIndex < params.numBoids) {
-        let parent = loadBoid(parentIndex);
-        let delta = parent.pos - boid.pos;
-        let distance = length(delta);
-        if (distance > 0.0001) {
-          let direction = delta / distance;
-          let relativeSpeed = dot(parent.vel - boid.vel, direction);
-          let stiffness = mix(120.0, 8.0, clamp(params.springStretchiness, 0.0, 1.0));
-          let acceleration = clamp((distance - max(params.springLength, 0.01)) * stiffness - relativeSpeed * elasticDamping, -elasticMaxAcceleration, elasticMaxAcceleration);
-          boid.vel += direction * acceleration * params.dt;
-        }
-      }
-    }
   } else if (index < params.numBoids) {
     for (var slot = 0u; slot < maxSpringConnections; slot += 1u) {
       flockAttachments[params.attachmentWriteOffset + boidIndex * maxSpringConnections + slot] = vec2<u32>(0xffffffffu, 0u);
