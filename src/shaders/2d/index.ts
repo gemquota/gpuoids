@@ -13,6 +13,7 @@ export const kernels2d: BoidKernels = {
   boids: `${boids}\n${raster}`,
   viewBindings: ["raster", "flockAttachments"],
   boidBytes: 8,
+  viewBufferBytesPerBoid: 64,
   searchBlockSize: 128,
   tileSize: 256,
   boidLimitPerGroup: 1024,
