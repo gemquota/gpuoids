@@ -208,10 +208,13 @@ fn mergedBehaviours(boid: ptr<function, Boid>, localID: u32, selfIndex: u32, can
 
 }
 
-fn limitSpeed(boid: ptr<function, Boid>) {
+fn limitSpeed(boid: ptr<function, Boid>, springBonded: bool) {
   let speed = length((*boid).vel);
-  let clampedSpeed = clamp(speed, params.minSpeed, params.maxSpeed);
-  (*boid).vel *= clampedSpeed / speed;
+  let minimumSpeed = select(params.minSpeed, 0.0, springBonded);
+  let clampedSpeed = clamp(speed, minimumSpeed, params.maxSpeed);
+  if (speed > 0.0001) {
+    (*boid).vel *= clampedSpeed / speed;
+  }
 }
 
 fn keepInBounds(boid: ptr<function, Boid>) {
@@ -257,6 +260,7 @@ fn main(@builtin(workgroup_id) GroupID : vec3<u32>, @builtin(local_invocation_in
   var neighbourCount = 0u;
   mergedBehaviours(&boid, localID, boidIndex, &candidateIndices, &candidateDistances, firstCell, lastCell, &attachedCenter, &attachedVelocity, &attachedCount, &closestAttachedDistSq, &seedCenter, &neighbourCount);
 
+  var springBonded = false;
   if (params.springEnabled > 0u) {
     let connectionLimit = min(params.springConnections, maxSpringConnections);
     var retainedParents: array<u32, 4>;
@@ -296,6 +300,7 @@ fn main(@builtin(workgroup_id) GroupID : vec3<u32>, @builtin(local_invocation_in
         strainFrames = 0u;
       }
       retainedParents[slot] = select(0xffffffffu, parentIndex, isAttached);
+      if (retainedParents[slot] < params.numBoids) { springBonded = true; }
       if (index < params.numBoids) {
         let restBits = pack2x16float(vec2<f32>(restLength, 0.0)) & 0xffffu;
         let attachmentState = (restBits << 16u) | (strainFrames << 1u) | select(0u, 1u, isAttached);
@@ -316,6 +321,7 @@ fn main(@builtin(workgroup_id) GroupID : vec3<u32>, @builtin(local_invocation_in
         }
         if (chosen != 0xffffffffu) {
           retainedParents[slot] = chosen;
+          springBonded = true;
           let restLength = max(params.springLength, 0.01);
           let restBits = pack2x16float(vec2<f32>(restLength, 0.0)) & 0xffffu;
           let state = (restBits << 16u) | 1u;
@@ -330,7 +336,7 @@ fn main(@builtin(workgroup_id) GroupID : vec3<u32>, @builtin(local_invocation_in
       flockAttachments[params.attachmentWriteOffset + boidIndex * maxSpringConnections + slot] = vec2<u32>(0xffffffffu, 0u);
     }
   }
-  limitSpeed(&boid);
+  limitSpeed(&boid, springBonded);
   keepInBounds(&boid);
   if (params.mousePredator > 0) {
     avoidPredators(&boid);
